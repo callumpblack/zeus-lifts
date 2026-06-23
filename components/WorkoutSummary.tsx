@@ -55,7 +55,7 @@ export default function WorkoutSummaryView({ name, summary }: Props) {
 
       <button
         onClick={() => router.replace("/")}
-        className="mt-10 w-full rounded-xl bg-accent py-3.5 font-semibold text-white transition-colors hover:bg-accent-dim"
+        className="mt-10 w-full rounded-xl bg-accent py-3.5 font-semibold text-ink transition-colors hover:bg-accent-dim"
       >
         Done
       </button>

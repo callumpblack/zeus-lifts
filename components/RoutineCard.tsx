@@ -81,7 +81,7 @@ export default function RoutineCard({ routine, onChanged }: Props) {
 
       <button
         onClick={() => setAskMode(true)}
-        className="mt-3 w-full rounded-xl bg-accent py-3 font-semibold text-white transition-colors hover:bg-accent-dim active:bg-accent-dim"
+        className="mt-3 w-full rounded-xl bg-accent py-3 font-semibold text-ink transition-colors hover:bg-accent-dim active:bg-accent-dim"
       >
         Start Routine
       </button>

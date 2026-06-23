@@ -76,7 +76,7 @@ function RoutineWorkoutInner() {
         <p className="text-muted">That routine could not be found.</p>
         <button
           onClick={() => router.replace("/")}
-          className="rounded-xl bg-accent px-5 py-2.5 font-semibold text-white"
+          className="rounded-xl bg-accent px-5 py-2.5 font-semibold text-ink"
         >
           Back to Home
         </button>

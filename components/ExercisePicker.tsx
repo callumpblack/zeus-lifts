@@ -116,7 +116,7 @@ export default function ExercisePicker({
         onClick={() => setOpenFilter((p) => (p === kind ? null : kind))}
         className={`flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
           active
-            ? "bg-accent text-white"
+            ? "bg-accent text-ink"
             : "bg-elevated text-white hover:bg-hairline"
         }`}
       >

@@ -78,7 +78,7 @@ export default function SetRow({ set, onChange, onToggle }: Props) {
         aria-label={`Mark set ${set.setNumber} complete`}
         className={`mx-auto flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
           done
-            ? "bg-success text-white"
+            ? "bg-success text-ink"
             : "bg-elevated text-faint hover:bg-hairline"
         }`}
       >

@@ -193,7 +193,7 @@ function RoutineEditorInner() {
                   }
                   className={`mt-3 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                     ex.mode === "solo"
-                      ? "bg-accent text-white"
+                      ? "bg-accent text-ink"
                       : "bg-elevated text-muted"
                   }`}
                 >
@@ -212,7 +212,7 @@ function RoutineEditorInner() {
         {/* Add exercise */}
         <button
           onClick={() => setPickerOpen(true)}
-          className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-accent py-3.5 font-semibold text-white transition-colors hover:bg-accent-dim"
+          className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-accent py-3.5 font-semibold text-ink transition-colors hover:bg-accent-dim"
         >
           <PlusIcon size={18} />
           Add Exercise

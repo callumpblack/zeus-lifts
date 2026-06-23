@@ -339,7 +339,7 @@ export default function WorkoutLogger({
             <button
               onClick={finish}
               disabled={saving}
-              className="rounded-lg bg-accent px-4 py-1.5 font-semibold text-white transition-colors hover:bg-accent-dim disabled:opacity-60"
+              className="rounded-lg bg-accent px-4 py-1.5 font-semibold text-ink transition-colors hover:bg-accent-dim disabled:opacity-60"
             >
               {saving ? "Saving…" : "Finish"}
             </button>
@@ -390,7 +390,7 @@ export default function WorkoutLogger({
 
           <button
             onClick={() => setPickerOpen(true)}
-            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-accent py-3.5 font-semibold text-white transition-colors hover:bg-accent-dim"
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-accent py-3.5 font-semibold text-ink transition-colors hover:bg-accent-dim"
           >
             <PlusIcon size={18} />
             Add Exercise

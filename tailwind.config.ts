@@ -9,23 +9,25 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Core palette — black backgrounds, blue as the only accent.
-        ink: "#000000", // page background
-        card: "#111111", // card / surface background
-        elevated: "#1C1C1E", // slightly raised surfaces (inputs, sub-buttons)
-        hairline: "#262626", // borders / dividers
+        // "Apex" palette — cool near-black surfaces, emerald as the only accent.
+        ink: "#0B0F14", // page background (near-black, slightly blue-cool)
+        card: "#141A22", // card / surface background (cool slate)
+        elevated: "#1E2632", // raised surfaces (inputs, sub-buttons)
+        hairline: "#28323F", // borders / dividers
         accent: {
-          DEFAULT: "#2196F3", // the single accent blue
-          dim: "#1976D2",
+          DEFAULT: "#10B981", // the single accent — emerald green
+          dim: "#0E9F6E", // hover / pressed
         },
-        success: "#3CB043", // checked set row / completed
-        successDark: "#23501f", // checked row background tint (matches Hevy green rows)
-        danger: "#FF3B30", // discard / destructive
-        muted: "#8E8E93", // grey secondary text
-        faint: "#5A5A5E", // grey tertiary / placeholders
+        success: "#22C55E", // checked set row / completed (brighter pop)
+        successDark: "#143222", // checked row background tint
+        danger: "#FF453A", // discard / destructive
+        muted: "#8A94A6", // grey-blue secondary text
+        faint: "#5B6675", // grey tertiary / placeholders
       },
       fontFamily: {
+        // Outfit (geometric, modern) loaded via next/font in app/layout.tsx.
         sans: [
+          "var(--font-outfit)",
           "-apple-system",
           "BlinkMacSystemFont",
           "Segoe UI",
