@@ -320,14 +320,19 @@ export async function saveProfile(profile: Profile): Promise<void> {
     data: { session },
   } = await sb.auth.getSession();
   const user = session?.user;
-  if (!user) return;
-  await sb.from("profile").upsert({
+  if (!user) {
+    throw new Error("You appear to be signed out. Please sign in again.");
+  }
+  const { error } = await sb.from("profile").upsert({
     id: user.id,
     username: profile.username,
     persona: profile.persona,
     bodyweight_kg: profile.bodyweightKg,
     updated_at: profile.updatedAt,
   });
+  // Surface write failures (e.g. a stale session whose auth user was deleted)
+  // so the caller can show an error instead of silently stalling.
+  if (error) throw new Error(error.message);
 }
 
 /**

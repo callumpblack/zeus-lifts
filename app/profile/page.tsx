@@ -47,7 +47,12 @@ export default function ProfilePage() {
       bodyweightKg: bodyweight.trim() === "" || !Number.isFinite(n) ? null : n,
       updatedAt: new Date().toISOString(),
     };
-    await saveProfile(profile);
+    try {
+      await saveProfile(profile);
+    } catch {
+      setStatus("idle");
+      return;
+    }
     setUpdatedAt(profile.updatedAt);
     setStatus("saved");
     setTimeout(() => setStatus("idle"), 1500);

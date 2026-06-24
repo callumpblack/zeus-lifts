@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { Persona } from "@/lib/types";
-import { getProfile, saveProfile, seedZeusRoutinesSafely } from "@/lib/db";
+import { getProfile, saveProfile, seedZeusRoutinesSafely, signOut } from "@/lib/db";
 
 interface Props {
   /** Called once the persona is chosen and (for Zeus) routines are seeded. */
@@ -89,6 +89,13 @@ export default function PersonaPicker({ onDone }: Props) {
       </div>
 
       {error && <p className="mt-4 text-sm text-danger">{error}</p>}
+
+      <button
+        onClick={() => signOut().then(() => window.location.reload())}
+        className="mt-6 text-sm font-medium text-muted hover:text-white"
+      >
+        Sign out and start over
+      </button>
     </div>
   );
 }
