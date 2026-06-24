@@ -11,9 +11,11 @@ import type {
 } from "@/lib/types";
 import {
   getLastPerformance,
+  getProfile,
   getWorkouts,
   saveWorkout,
 } from "@/lib/db";
+import { randomAnimal } from "@/lib/animals";
 import {
   completedSetCount,
   formatDuration,
@@ -22,6 +24,7 @@ import {
   workoutVolume,
 } from "@/lib/format";
 import ExerciseBlock from "./ExerciseBlock";
+import SupersetBlock from "./SupersetBlock";
 import ExercisePicker from "./ExercisePicker";
 import WorkoutSummaryView from "./WorkoutSummary";
 import {
@@ -74,11 +77,15 @@ export default function WorkoutLogger({
   const [recentNames, setRecentNames] = useState<string[]>([]);
   const [summary, setSummary] = useState<WorkoutSummary | null>(null);
   const [saving, setSaving] = useState(false);
+  const [bodyweightKg, setBodyweightKg] = useState<number | null>(null);
 
   // Cache of previous performance per exercise, used when adding sets.
   const prevMaps = useRef<
     Map<string, Map<number, { weightKg: number; reps: number }>>
   >(new Map());
+
+  // Open superset pairing: the next added exercise joins this group id.
+  const pendingSupersetRef = useRef<string | null>(null);
 
   // Live duration ticker.
   useEffect(() => {
@@ -94,6 +101,37 @@ export default function WorkoutLogger({
       /* storage full / unavailable */
     }
   }, [workout, draftKey]);
+
+  // Load bodyweight from profile, then recompute lifted weight for any assisted
+  // sets that already have an assistance value (e.g. a resumed draft).
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const p = await getProfile();
+      if (!active) return;
+      setBodyweightKg(p.bodyweightKg);
+      if (p.bodyweightKg == null) return;
+      const bw = p.bodyweightKg;
+      setWorkout((w) => ({
+        ...w,
+        exercises: w.exercises.map((ex) =>
+          ex.requiresBodyweight
+            ? {
+                ...ex,
+                sets: ex.sets.map((s) =>
+                  s.assistanceKg != null
+                    ? { ...s, weightKg: Math.max(0, bw - s.assistanceKg) }
+                    : s
+                ),
+              }
+            : ex
+        ),
+      }));
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Load "previous" performance for all exercises + recent list for the picker.
   useEffect(() => {
@@ -159,7 +197,8 @@ export default function WorkoutLogger({
       ...w,
       exercises: w.exercises.map((ex) => {
         if (ex.id !== exId) return ex;
-        const nextNumber = ex.sets.length + 1;
+        // Number by top-level sets only (drop sets don't get their own number).
+        const nextNumber = ex.sets.filter((s) => !s.parentSetId).length + 1;
         const prev = prevMaps.current.get(ex.exerciseName)?.get(nextNumber) ?? null;
         const newSet: WorkoutSet = {
           id: uid("set"),
@@ -174,25 +213,71 @@ export default function WorkoutLogger({
     }));
   }
 
-  function toggleSet(exId: string, setId: string) {
+  function addDropSet(exId: string, parentSetId: string) {
     setWorkout((w) => ({
       ...w,
       exercises: w.exercises.map((ex) => {
         if (ex.id !== exId) return ex;
-        return {
-          ...ex,
-          sets: ex.sets.map((s) =>
-            s.id === setId
-              ? {
-                  ...s,
-                  completed: !s.completed,
-                  completedAt: !s.completed ? new Date().toISOString() : null,
-                }
-              : s
-          ),
+        const parent = ex.sets.find((s) => s.id === parentSetId);
+        const dropSet: WorkoutSet = {
+          id: uid("set"),
+          setNumber: parent?.setNumber ?? ex.sets.length + 1,
+          weightKg: null,
+          reps: null,
+          completed: false,
+          parentSetId,
         };
+        // Insert the drop set immediately after the parent (and its existing drops).
+        const sets = [...ex.sets];
+        let insertAt = sets.findIndex((s) => s.id === parentSetId) + 1;
+        while (insertAt < sets.length && sets[insertAt].parentSetId === parentSetId) {
+          insertAt += 1;
+        }
+        sets.splice(insertAt, 0, dropSet);
+        return { ...ex, sets };
       }),
     }));
+  }
+
+  function toggleSet(exId: string, setId: string) {
+    setWorkout((w) => {
+      let justCompleted = false;
+      let exercises = w.exercises.map((ex) => {
+        if (ex.id !== exId) return ex;
+        return {
+          ...ex,
+          sets: ex.sets.map((s) => {
+            if (s.id !== setId) return s;
+            justCompleted = !s.completed;
+            return {
+              ...s,
+              completed: !s.completed,
+              completedAt: !s.completed ? new Date().toISOString() : null,
+            };
+          }),
+        };
+      });
+
+      // Standard superset behaviour: once a round is complete across the pair
+      // (every grouped exercise has the same number of completed top-level sets),
+      // auto-start the shared rest timer on the group's head exercise.
+      const ex = exercises.find((e) => e.id === exId);
+      if (justCompleted && ex?.supersetGroup) {
+        const group = exercises.filter((e) => e.supersetGroup === ex.supersetGroup);
+        const counts = group.map(
+          (e) => e.sets.filter((s) => !s.parentSetId && s.completed).length
+        );
+        const roundDone = counts.every((c) => c > 0 && c === counts[0]);
+        if (roundDone) {
+          const headId = group[0].id;
+          exercises = exercises.map((e) =>
+            e.id === headId ? { ...e, restEnabled: true } : e
+          );
+        }
+      }
+
+      return { ...w, exercises };
+    });
   }
 
   function changeSet(exId: string, setId: string, patch: Partial<WorkoutSet>) {
@@ -218,10 +303,16 @@ export default function WorkoutLogger({
     }));
   }
 
-  async function addExercise(def: ExerciseDef) {
+  async function addExercise(def: ExerciseDef, pairWithNext?: boolean) {
     setPickerOpen(false);
     const prev = await getLastPerformance(def.name);
     prevMaps.current.set(def.name, prev);
+
+    // Superset grouping: join an open pairing, or open a new one if requested.
+    let group = pendingSupersetRef.current;
+    if (!group && pairWithNext) group = uid("ss");
+    pendingSupersetRef.current = pairWithNext ? group : null;
+
     setWorkout((w) => ({
       ...w,
       exercises: [
@@ -234,6 +325,8 @@ export default function WorkoutLogger({
           order: w.exercises.length + 1,
           restSeconds: 60,
           restEnabled: false,
+          requiresBodyweight: def.requiresBodyweight ?? false,
+          supersetGroup: group,
           sets: [
             {
               id: uid("set"),
@@ -287,8 +380,14 @@ export default function WorkoutLogger({
       }
     }
 
+    const animal = randomAnimal();
     const finishedAt = new Date().toISOString();
-    const finished: Workout = { ...workout, finishedAt };
+    const finished: Workout = {
+      ...workout,
+      finishedAt,
+      animalName: animal.name,
+      animalEmoji: animal.emoji,
+    };
     await saveWorkout(finished);
 
     try {
@@ -302,6 +401,7 @@ export default function WorkoutLogger({
       volumeKg: workoutVolume(finished),
       setsCompleted: completedSetCount(finished),
       prs,
+      animal: { name: animal.name, emoji: animal.emoji },
     });
   }
 
@@ -376,17 +476,33 @@ export default function WorkoutLogger({
         </div>
       ) : (
         <div className="space-y-3 p-4">
-          {workout.exercises.map((ex) => (
-            <ExerciseBlock
-              key={ex.id}
-              exercise={ex}
-              onChange={(patch) => patchExercise(ex.id, patch)}
-              onAddSet={() => addSet(ex.id)}
-              onToggleSet={(setId) => toggleSet(ex.id, setId)}
-              onChangeSet={(setId, patch) => changeSet(ex.id, setId, patch)}
-              onRemove={() => removeExercise(ex.id)}
-            />
-          ))}
+          {groupExercises(workout.exercises).map((group) =>
+            group.length > 1 ? (
+              <SupersetBlock
+                key={group[0].id}
+                exercises={group}
+                bodyweightKg={bodyweightKg}
+                onChange={patchExercise}
+                onAddSet={addSet}
+                onToggleSet={toggleSet}
+                onChangeSet={changeSet}
+                onAddDropSet={addDropSet}
+                onRemove={removeExercise}
+              />
+            ) : (
+              <ExerciseBlock
+                key={group[0].id}
+                exercise={group[0]}
+                bodyweightKg={bodyweightKg}
+                onChange={(patch) => patchExercise(group[0].id, patch)}
+                onAddSet={() => addSet(group[0].id)}
+                onToggleSet={(setId) => toggleSet(group[0].id, setId)}
+                onChangeSet={(setId, patch) => changeSet(group[0].id, setId, patch)}
+                onAddDropSet={(parentSetId) => addDropSet(group[0].id, parentSetId)}
+                onRemove={() => removeExercise(group[0].id)}
+              />
+            )
+          )}
 
           <button
             onClick={() => setPickerOpen(true)}
@@ -409,9 +525,24 @@ export default function WorkoutLogger({
         onClose={() => setPickerOpen(false)}
         onPick={addExercise}
         recentNames={recentNames}
+        allowSuperset
       />
     </div>
   );
+}
+
+/** Collapse consecutive exercises sharing a superset group into sub-arrays. */
+function groupExercises(exercises: WorkoutExercise[]): WorkoutExercise[][] {
+  const groups: WorkoutExercise[][] = [];
+  for (const ex of exercises) {
+    const last = groups[groups.length - 1];
+    if (ex.supersetGroup && last && last[0].supersetGroup === ex.supersetGroup) {
+      last.push(ex);
+    } else {
+      groups.push([ex]);
+    }
+  }
+  return groups;
 }
 
 function Stat({

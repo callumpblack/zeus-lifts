@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import type { RoutineMode, Workout, WorkoutExercise } from "@/lib/types";
 import { exercisesForMode, getRoutineById } from "@/lib/db";
+import { findExercise } from "@/lib/exercises";
 import { targetNote } from "@/lib/seed-routines";
 import { uid } from "@/lib/format";
 import WorkoutLogger from "@/components/WorkoutLogger";
@@ -19,6 +20,7 @@ function buildExercises(
     order: i + 1,
     restSeconds: re.restSeconds || 60,
     restEnabled: false,
+    requiresBodyweight: findExercise(re.exerciseName)?.requiresBodyweight ?? false,
     sets: Array.from({ length: re.sets }, (_, s) => ({
       id: uid("set"),
       setNumber: s + 1,

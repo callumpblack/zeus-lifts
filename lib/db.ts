@@ -1,12 +1,15 @@
 "use client";
 
 import type {
+  Persona,
+  Profile,
   Routine,
   RoutineExercise,
   RoutineMode,
   Workout,
 } from "./types";
 import { SEED_ROUTINES } from "./seed-routines";
+import { uid } from "./format";
 import { getSupabase, isSupabaseConfigured } from "./supabase";
 
 /**
@@ -19,6 +22,7 @@ import { getSupabase, isSupabaseConfigured } from "./supabase";
 
 const LS_ROUTINES = "zeus.routines.v1";
 const LS_WORKOUTS = "zeus.workouts.v1";
+const LS_PROFILE = "zeus.profile.v1";
 
 // ── Mode helper ───────────────────────────────────────────────────────────
 /** Exercises to load for a session: with_friend = core only, solo = all. */
@@ -162,18 +166,22 @@ export async function getWorkouts(): Promise<Workout[]> {
 
   const { data: workouts, error } = await sb
     .from("workouts")
-    .select("id, routine_id, name, started_at, finished_at, notes")
+    .select(
+      "id, routine_id, name, started_at, finished_at, notes, animal_name, animal_emoji"
+    )
     .order("started_at", { ascending: false });
   if (error || !workouts) return [];
 
   const { data: exRows } = await sb
     .from("workout_exercises")
-    .select('id, workout_id, exercise_name, slug, notes, "order"')
+    .select(
+      'id, workout_id, exercise_name, slug, notes, "order", requires_bodyweight, superset_group'
+    )
     .order("order", { ascending: true });
   const { data: setRows } = await sb
     .from("workout_sets")
     .select(
-      "id, workout_exercise_id, set_number, weight_kg, reps, completed, completed_at"
+      "id, workout_exercise_id, set_number, weight_kg, reps, completed, completed_at, assistance_kg, parent_set_id"
     )
     .order("set_number", { ascending: true });
 
@@ -184,6 +192,8 @@ export async function getWorkouts(): Promise<Workout[]> {
     startedAt: w.started_at,
     finishedAt: w.finished_at,
     notes: w.notes ?? "",
+    animalName: w.animal_name ?? null,
+    animalEmoji: w.animal_emoji ?? null,
     exercises: (exRows ?? [])
       .filter((e) => e.workout_id === w.id)
       .map((e) => ({
@@ -194,6 +204,8 @@ export async function getWorkouts(): Promise<Workout[]> {
         order: e.order,
         restSeconds: 60,
         restEnabled: false,
+        requiresBodyweight: e.requires_bodyweight ?? false,
+        supersetGroup: e.superset_group ?? null,
         sets: (setRows ?? [])
           .filter((s) => s.workout_exercise_id === e.id)
           .map((s) => ({
@@ -203,6 +215,8 @@ export async function getWorkouts(): Promise<Workout[]> {
             reps: s.reps,
             completed: s.completed,
             completedAt: s.completed_at,
+            assistanceKg: s.assistance_kg ?? null,
+            parentSetId: s.parent_set_id ?? null,
           })),
       })),
   }));
@@ -224,6 +238,8 @@ export async function saveWorkout(workout: Workout): Promise<void> {
     started_at: workout.startedAt,
     finished_at: workout.finishedAt,
     notes: workout.notes,
+    animal_name: workout.animalName ?? null,
+    animal_emoji: workout.animalEmoji ?? null,
   });
 
   for (const ex of workout.exercises) {
@@ -234,11 +250,17 @@ export async function saveWorkout(workout: Workout): Promise<void> {
       slug: ex.slug,
       notes: ex.notes,
       order: ex.order,
+      requires_bodyweight: ex.requiresBodyweight ?? false,
+      superset_group: ex.supersetGroup ?? null,
     });
     const sets = ex.sets.filter((s) => s.weightKg != null || s.reps != null);
     if (sets.length) {
+      // Insert top-level sets before drop-set children (self-referencing FK).
+      const ordered = [...sets].sort(
+        (a, b) => (a.parentSetId ? 1 : 0) - (b.parentSetId ? 1 : 0)
+      );
       await sb.from("workout_sets").insert(
-        sets.map((s) => ({
+        ordered.map((s) => ({
           id: s.id,
           workout_exercise_id: ex.id,
           set_number: s.setNumber,
@@ -246,8 +268,85 @@ export async function saveWorkout(workout: Workout): Promise<void> {
           reps: s.reps,
           completed: s.completed,
           completed_at: s.completedAt ?? null,
+          assistance_kg: s.assistanceKg ?? null,
+          parent_set_id: s.parentSetId ?? null,
         }))
       );
+    }
+  }
+}
+
+// ── Profile (per-user when authenticated) ────────────────────────────────────
+const EMPTY_PROFILE: Profile = {
+  persona: null,
+  bodyweightKg: null,
+  updatedAt: "",
+};
+
+export async function getProfile(): Promise<Profile> {
+  const sb = getSupabase();
+  if (!sb) return lsRead<Profile>(LS_PROFILE, EMPTY_PROFILE);
+
+  const {
+    data: { user },
+  } = await sb.auth.getUser();
+  if (!user) return EMPTY_PROFILE;
+
+  const { data, error } = await sb
+    .from("profile")
+    .select("persona, bodyweight_kg, updated_at")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (error || !data) return EMPTY_PROFILE;
+  return {
+    persona: (data.persona as Persona) ?? null,
+    bodyweightKg: data.bodyweight_kg ?? null,
+    updatedAt: data.updated_at ?? "",
+  };
+}
+
+export async function saveProfile(profile: Profile): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) {
+    lsWrite(LS_PROFILE, profile);
+    return;
+  }
+  const {
+    data: { user },
+  } = await sb.auth.getUser();
+  if (!user) return;
+  await sb.from("profile").upsert({
+    id: user.id,
+    persona: profile.persona,
+    bodyweight_kg: profile.bodyweightKg,
+    updated_at: profile.updatedAt,
+  });
+}
+
+/**
+ * Clone the 4 Zeus routines into the current account with fresh ids. Called on
+ * first login when the user picks the Zeus persona. Fresh ids mean two separate
+ * Zeus accounts each get their own independent copies (no shared rows).
+ */
+export async function seedZeusRoutines(): Promise<void> {
+  const now = new Date().toISOString();
+  for (const r of SEED_ROUTINES) {
+    await createRoutine({
+      id: uid("rt"),
+      name: r.name,
+      createdAt: now,
+      exercises: r.exercises.map((e) => ({ ...e, id: uid("re") })),
+    });
+  }
+}
+
+/** Sign out and wipe this browser's local Zeus data (drafts, cached fallback). */
+export async function signOut(): Promise<void> {
+  const sb = getSupabase();
+  if (sb) await sb.auth.signOut();
+  if (typeof window !== "undefined") {
+    for (const k of Object.keys(window.localStorage)) {
+      if (k.startsWith("zeus.")) window.localStorage.removeItem(k);
     }
   }
 }

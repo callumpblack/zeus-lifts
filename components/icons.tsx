@@ -149,6 +149,25 @@ export function TrashIcon(p: IconProps) {
   );
 }
 
+export function LinkIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M9 17H7A5 5 0 0 1 7 7h2" />
+      <path d="M15 7h2a5 5 0 0 1 0 10h-2" />
+      <path d="M8 12h8" />
+    </svg>
+  );
+}
+
+export function UserIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21a8 8 0 0 1 16 0" />
+    </svg>
+  );
+}
+
 export function NoteIcon(p: IconProps) {
   return (
     <svg {...base(p)}>

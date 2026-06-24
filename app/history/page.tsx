@@ -61,6 +61,7 @@ export default function HistoryPage() {
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-white">
+                      {w.animalEmoji ? `${w.animalEmoji} ` : ""}
                       {w.name || "Workout"}
                     </span>
                     <ChevronDownIcon

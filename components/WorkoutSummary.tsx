@@ -22,7 +22,21 @@ export default function WorkoutSummaryView({ name, summary }: Props) {
       <h1 className="mt-5 text-2xl font-bold text-white">Workout Complete</h1>
       <p className="mt-1 text-muted">{name || "Workout"} saved</p>
 
-      <div className="mt-8 grid w-full grid-cols-3 gap-3">
+      {summary.animal && (
+        <div className="mt-6 w-full rounded-2xl bg-card px-4 py-5">
+          <div className="text-5xl leading-none" aria-hidden>
+            {summary.animal.emoji}
+          </div>
+          <p className="mt-3 text-lg font-semibold text-white">
+            You lifted {summary.animal.emoji} × {summary.setsCompleted}
+          </p>
+          <p className="mt-0.5 text-xs text-muted">
+            {summary.setsCompleted} sets of {summary.animal.name}
+          </p>
+        </div>
+      )}
+
+      <div className="mt-6 grid w-full grid-cols-3 gap-3">
         <Tile label="Duration" value={formatDuration(summary.durationSeconds)} accent />
         <Tile label="Volume" value={`${summary.volumeKg} kg`} />
         <Tile label="Sets" value={String(summary.setsCompleted)} />

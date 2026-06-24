@@ -30,7 +30,7 @@ export const EXERCISE_LIBRARY: ExerciseDef[] = [
   { name: "Seated Dumbbell Fly", slug: "Dumbbell_Flyes", primaryMuscle: "Chest", equipment: "Dumbbell" },
   { name: "Cable Chest Fly (Low to High)", slug: "Low_Cable_Crossover", primaryMuscle: "Chest", equipment: "Cable" },
   { name: "Cable Crossover", slug: "Cable_Crossover", primaryMuscle: "Chest", equipment: "Cable" },
-  { name: "Chest Dip (Assisted)", slug: "Dips_-_Chest_Version", primaryMuscle: "Chest", equipment: "Machine" },
+  { name: "Chest Dip (Assisted)", slug: "Dips_-_Chest_Version", primaryMuscle: "Chest", equipment: "Machine", requiresBodyweight: true },
   { name: "Push Up", slug: "Pushups", primaryMuscle: "Chest", equipment: "Bodyweight" },
 
   // ── Shoulders ──
@@ -43,7 +43,7 @@ export const EXERCISE_LIBRARY: ExerciseDef[] = [
   { name: "Face Pull", slug: "Face_Pull", primaryMuscle: "Shoulders", equipment: "Cable" },
 
   // ── Back ──
-  { name: "Assisted Pull-Up", slug: "Band_Assisted_Pull-Up", primaryMuscle: "Lats", equipment: "Machine" },
+  { name: "Assisted Pull-Up", slug: "Band_Assisted_Pull-Up", primaryMuscle: "Lats", equipment: "Machine", requiresBodyweight: true },
   { name: "Pull Up", slug: "Pullups", primaryMuscle: "Lats", equipment: "Bodyweight" },
   { name: "Lat Pulldown (Cable)", slug: "Wide-Grip_Lat_Pulldown", primaryMuscle: "Lats", equipment: "Cable" },
   { name: "Lat Pulldown (Close Grip)", slug: "Close-Grip_Front_Lat_Pulldown", primaryMuscle: "Lats", equipment: "Cable" },

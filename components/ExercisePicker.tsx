@@ -19,9 +19,11 @@ import {
 interface Props {
   open: boolean;
   onClose: () => void;
-  onPick: (exercise: ExerciseDef) => void;
+  onPick: (exercise: ExerciseDef, pairWithNext?: boolean) => void;
   /** Exercise names most-recently-used first (max ~10 shown). */
   recentNames?: string[];
+  /** Show the "pair with next as superset" toggle (live workout only). */
+  allowSuperset?: boolean;
 }
 
 /** Full-screen exercise picker sheet, shared by workouts and routine editing. */
@@ -30,10 +32,12 @@ export default function ExercisePicker({
   onClose,
   onPick,
   recentNames = [],
+  allowSuperset = false,
 }: Props) {
   const [query, setQuery] = useState("");
   const [equipment, setEquipment] = useState("All Equipment");
   const [muscle, setMuscle] = useState("All Muscles");
+  const [pair, setPair] = useState(false);
   const [openFilter, setOpenFilter] = useState<null | "equipment" | "muscle">(
     null
   );
@@ -44,6 +48,7 @@ export default function ExercisePicker({
       setQuery("");
       setEquipment("All Equipment");
       setMuscle("All Muscles");
+      setPair(false);
       setOpenFilter(null);
     }
   }, [open]);
@@ -89,7 +94,7 @@ export default function ExercisePicker({
 
   const Row = ({ e }: { e: ExerciseDef }) => (
     <button
-      onClick={() => onPick(e)}
+      onClick={() => onPick(e, pair)}
       className="flex w-full items-center gap-3 py-2.5 text-left transition-colors active:bg-card"
     >
       <ExerciseImage slug={e.slug} alt={e.name} size={48} />
@@ -183,6 +188,29 @@ export default function ExercisePicker({
             </>
           )}
         </div>
+
+        {allowSuperset && (
+          <button
+            onClick={() => setPair((v) => !v)}
+            className="flex w-full items-center justify-between rounded-lg bg-elevated px-3 py-2.5 text-left"
+          >
+            <span className="text-sm font-medium text-white">
+              Pair with next exercise as superset
+            </span>
+            <span
+              aria-hidden
+              className={`relative h-5 w-9 rounded-full transition-colors ${
+                pair ? "bg-accent" : "bg-hairline"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${
+                  pair ? "left-0.5 translate-x-4" : "left-0.5"
+                }`}
+              />
+            </span>
+          </button>
+        )}
       </div>
 
       {/* List */}

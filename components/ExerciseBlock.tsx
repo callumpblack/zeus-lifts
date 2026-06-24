@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { Fragment, useRef, useState } from "react";
+import Link from "next/link";
 import type { WorkoutExercise, WorkoutSet } from "@/lib/types";
 import ExerciseImage from "./ExerciseImage";
 import RestTimer from "./RestTimer";
@@ -13,7 +14,12 @@ interface Props {
   onAddSet: () => void;
   onToggleSet: (setId: string) => void;
   onChangeSet: (setId: string, patch: Partial<WorkoutSet>) => void;
+  onAddDropSet: (parentSetId: string) => void;
   onRemove: () => void;
+  /** Lifter bodyweight (from Profile), used by assisted exercises. */
+  bodyweightKg?: number | null;
+  /** Suppress the per-exercise rest timer (the superset container owns it). */
+  hideRestTimer?: boolean;
 }
 
 /** A single exercise card inside the active workout. */
@@ -23,10 +29,20 @@ export default function ExerciseBlock({
   onAddSet,
   onToggleSet,
   onChangeSet,
+  onAddDropSet,
   onRemove,
+  bodyweightKg = null,
+  hideRestTimer = false,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const notesRef = useRef<HTMLTextAreaElement>(null);
+
+  const assisted = Boolean(exercise.requiresBodyweight);
+  const needsBodyweight = assisted && bodyweightKg == null;
+
+  const topLevel = exercise.sets.filter((s) => !s.parentSetId);
+  const childrenOf = (id: string) =>
+    exercise.sets.filter((s) => s.parentSetId === id);
 
   return (
     <div className="rounded-2xl bg-card p-4">
@@ -85,33 +101,60 @@ export default function ExerciseBlock({
         className="mt-2 w-full resize-none bg-transparent text-sm text-muted placeholder:text-faint focus:text-white focus:outline-none"
       />
 
-      {/* Rest timer */}
-      <div className="mt-1">
-        <RestTimer
-          seconds={exercise.restSeconds || 60}
-          enabled={exercise.restEnabled}
-          onToggle={() => onChange({ restEnabled: !exercise.restEnabled })}
-        />
-      </div>
+      {/* Rest timer (owned by the superset container when grouped) */}
+      {!hideRestTimer && (
+        <div className="mt-1">
+          <RestTimer
+            seconds={exercise.restSeconds || 60}
+            enabled={exercise.restEnabled}
+            onToggle={() => onChange({ restEnabled: !exercise.restEnabled })}
+          />
+        </div>
+      )}
+
+      {/* Bodyweight hint for assisted exercises */}
+      {needsBodyweight && (
+        <Link
+          href="/profile"
+          className="mt-2 block rounded-lg bg-elevated px-3 py-2 text-xs text-muted hover:text-white"
+        >
+          Set your bodyweight in Profile → to track assisted load
+        </Link>
+      )}
 
       {/* Column headers */}
       <div className={`${SET_GRID} mt-3 px-1 text-[11px] font-semibold tracking-wide text-faint`}>
         <div className="text-center">SET</div>
-        <div className="text-center">PREVIOUS</div>
-        <div className="text-center">KG</div>
+        <div className="text-center">{assisted ? "LIFTED" : "PREVIOUS"}</div>
+        <div className="text-center">{assisted ? "−ASSIST" : "KG"}</div>
         <div className="text-center">REPS</div>
         <div className="text-center">✓</div>
       </div>
 
-      {/* Set rows */}
+      {/* Set rows (each top-level set followed by its drop sets) */}
       <div className="mt-1 space-y-0.5">
-        {exercise.sets.map((s) => (
-          <SetRow
-            key={s.id}
-            set={s}
-            onToggle={() => onToggleSet(s.id)}
-            onChange={(patch) => onChangeSet(s.id, patch)}
-          />
+        {topLevel.map((s) => (
+          <Fragment key={s.id}>
+            <SetRow
+              set={s}
+              assisted={assisted}
+              bodyweightKg={bodyweightKg}
+              onToggle={() => onToggleSet(s.id)}
+              onChange={(patch) => onChangeSet(s.id, patch)}
+              onAddDropSet={() => onAddDropSet(s.id)}
+            />
+            {childrenOf(s.id).map((c) => (
+              <SetRow
+                key={c.id}
+                set={c}
+                isDropSet
+                assisted={assisted}
+                bodyweightKg={bodyweightKg}
+                onToggle={() => onToggleSet(c.id)}
+                onChange={(patch) => onChangeSet(c.id, patch)}
+              />
+            ))}
+          </Fragment>
         ))}
       </div>
 

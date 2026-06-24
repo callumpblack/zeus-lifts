@@ -31,3 +31,6 @@ yarn-error.log*
 Hevy_blank_workout/
 hevy_in_routine/
 Zeus pre set routines.txt
+
+# raw animal source data (~290 MB) — only the generated lib/animals.ts is committed
+animal database/

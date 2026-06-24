@@ -2,21 +2,21 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { HomeIcon, DumbbellIcon, HistoryIcon } from "./icons";
+import { HomeIcon, HistoryIcon, UserIcon } from "./icons";
 
 const TABS = [
   { href: "/", label: "Home", icon: HomeIcon, match: (p: string) => p === "/" },
-  {
-    href: "/workout/new",
-    label: "Workout",
-    icon: DumbbellIcon,
-    match: (p: string) => p.startsWith("/workout") || p.startsWith("/routines"),
-  },
   {
     href: "/history",
     label: "History",
     icon: HistoryIcon,
     match: (p: string) => p.startsWith("/history"),
+  },
+  {
+    href: "/profile",
+    label: "Profile",
+    icon: UserIcon,
+    match: (p: string) => p.startsWith("/profile"),
   },
 ];
 

@@ -14,7 +14,14 @@ export function getSupabase(): SupabaseClient | null {
   if (!isSupabaseConfigured) return null;
   if (!client) {
     client = createClient(url as string, anonKey as string, {
-      auth: { persistSession: false },
+      auth: {
+        // Keep users logged in across reloads/restarts; a magic link is only
+        // needed once per browser. The session lives in localStorage and is
+        // auto-refreshed; detectSessionInUrl handles the magic-link landing.
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
     });
   }
   return client;
