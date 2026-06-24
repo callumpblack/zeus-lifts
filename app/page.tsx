@@ -7,6 +7,7 @@ import type { Routine } from "@/lib/types";
 import { getRoutines } from "@/lib/db";
 import BottomNav from "@/components/BottomNav";
 import RoutineCard from "@/components/RoutineCard";
+import ModuleToggle from "@/components/nutrition/ModuleToggle";
 import {
   ChevronDownIcon,
   ClipboardIcon,
@@ -29,7 +30,8 @@ export default function HomePage() {
   return (
     <main className="min-h-dvh pb-24">
       <header className="px-4 pb-2 pt-5">
-        <h1 className="text-3xl font-extrabold tracking-tight text-white">
+        <ModuleToggle />
+        <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-white">
           Zeus <span className="text-accent">Lifts</span>
         </h1>
       </header>
