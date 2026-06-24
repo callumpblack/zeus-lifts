@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { Session } from "@supabase/supabase-js";
+import { useCallback, useEffect, useState } from "react";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
+import { isSigningUp } from "@/lib/auth";
 import { getProfile } from "@/lib/db";
 import LoginScreen from "./LoginScreen";
 import PersonaPicker from "./PersonaPicker";
@@ -22,32 +22,34 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     isSupabaseConfigured ? "loading" : "ready"
   );
 
+  // Re-check the current session + profile and pick the right screen.
+  const resolve = useCallback(async () => {
+    const sb = getSupabase();
+    if (!sb) return;
+    // Ignore the intermediate auth events fired mid sign-up; the sign-up
+    // handler calls resolve() itself once the profile is fully written.
+    if (isSigningUp()) return;
+    const {
+      data: { session },
+    } = await sb.auth.getSession();
+    if (!session) {
+      setStatus("signedOut");
+      return;
+    }
+    const profile = await getProfile();
+    setStatus(profile.persona ? "ready" : "needPersona");
+  }, []);
+
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     const sb = getSupabase();
     if (!sb) return;
-    let active = true;
-
-    async function resolve(session: Session | null) {
-      if (!session) {
-        if (active) setStatus("signedOut");
-        return;
-      }
-      const profile = await getProfile();
-      if (!active) return;
-      setStatus(profile.persona ? "ready" : "needPersona");
-    }
-
-    sb.auth.getSession().then(({ data }) => resolve(data.session));
+    resolve();
     const {
       data: { subscription },
-    } = sb.auth.onAuthStateChange((_event, session) => resolve(session));
-
-    return () => {
-      active = false;
-      subscription.unsubscribe();
-    };
-  }, []);
+    } = sb.auth.onAuthStateChange(() => resolve());
+    return () => subscription.unsubscribe();
+  }, [resolve]);
 
   if (status === "loading") {
     return (
@@ -56,9 +58,9 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  if (status === "signedOut") return <LoginScreen />;
+  if (status === "signedOut") return <LoginScreen onAuthed={resolve} />;
   if (status === "needPersona") {
-    return <PersonaPicker onDone={() => setStatus("ready")} />;
+    return <PersonaPicker onDone={resolve} />;
   }
   return <>{children}</>;
 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { Persona } from "@/lib/types";
-import { saveProfile, seedZeusRoutines } from "@/lib/db";
+import { getProfile, saveProfile, seedZeusRoutines } from "@/lib/db";
 
 interface Props {
   /** Called once the persona is chosen and (for Zeus) routines are seeded. */
@@ -20,9 +20,11 @@ export default function PersonaPicker({ onDone }: Props) {
   async function choose(persona: Persona) {
     if (busy) return;
     setBusy(persona);
+    const existing = await getProfile();
     await saveProfile({
+      username: existing.username,
       persona,
-      bodyweightKg: null,
+      bodyweightKg: existing.bodyweightKg,
       updatedAt: new Date().toISOString(),
     });
     if (persona === "zeus") await seedZeusRoutines();

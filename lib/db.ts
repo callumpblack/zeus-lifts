@@ -278,6 +278,7 @@ export async function saveWorkout(workout: Workout): Promise<void> {
 
 // ── Profile (per-user when authenticated) ────────────────────────────────────
 const EMPTY_PROFILE: Profile = {
+  username: null,
   persona: null,
   bodyweightKg: null,
   updatedAt: "",
@@ -294,11 +295,12 @@ export async function getProfile(): Promise<Profile> {
 
   const { data, error } = await sb
     .from("profile")
-    .select("persona, bodyweight_kg, updated_at")
+    .select("username, persona, bodyweight_kg, updated_at")
     .eq("id", user.id)
     .maybeSingle();
   if (error || !data) return EMPTY_PROFILE;
   return {
+    username: data.username ?? null,
     persona: (data.persona as Persona) ?? null,
     bodyweightKg: data.bodyweight_kg ?? null,
     updatedAt: data.updated_at ?? "",
@@ -317,6 +319,7 @@ export async function saveProfile(profile: Profile): Promise<void> {
   if (!user) return;
   await sb.from("profile").upsert({
     id: user.id,
+    username: profile.username,
     persona: profile.persona,
     bodyweight_kg: profile.bodyweightKg,
     updated_at: profile.updatedAt,
@@ -329,6 +332,9 @@ export async function saveProfile(profile: Profile): Promise<void> {
  * Zeus accounts each get their own independent copies (no shared rows).
  */
 export async function seedZeusRoutines(): Promise<void> {
+  // Never duplicate: skip if this account already has any routines.
+  const existing = await getRoutines();
+  if (existing.length > 0) return;
   const now = new Date().toISOString();
   for (const r of SEED_ROUTINES) {
     await createRoutine({

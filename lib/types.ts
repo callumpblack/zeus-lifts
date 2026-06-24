@@ -98,8 +98,9 @@ export interface WorkoutSummary {
 /** Persona chosen on first login. Zeus starts with the 4 routines; Hera blank. */
 export type Persona = "zeus" | "hera";
 
-/** Per-user profile: persona + bodyweight (used for assisted exercises). */
+/** Per-user profile: username, persona + bodyweight (for assisted exercises). */
 export interface Profile {
+  username: string | null;
   persona: Persona | null;
   bodyweightKg: number | null;
   updatedAt: string;

@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import type { Persona, Profile } from "@/lib/types";
 import { getProfile, saveProfile, signOut } from "@/lib/db";
-import { isSupabaseConfigured } from "@/lib/supabase";
+import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
+import { isValidPin } from "@/lib/auth";
 import { formatWorkoutDate } from "@/lib/format";
 import BottomNav from "@/components/BottomNav";
 import { UserIcon } from "@/components/icons";
@@ -15,15 +16,22 @@ const PERSONA_LABEL: Record<Persona, string> = {
 
 export default function ProfilePage() {
   const [bodyweight, setBodyweight] = useState("");
+  const [username, setUsername] = useState<string | null>(null);
   const [persona, setPersona] = useState<Persona | null>(null);
   const [updatedAt, setUpdatedAt] = useState("");
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
 
+  // Change-PIN state.
+  const [newPin, setNewPin] = useState("");
+  const [pinStatus, setPinStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [pinError, setPinError] = useState("");
+
   useEffect(() => {
     (async () => {
       const p = await getProfile();
       setBodyweight(p.bodyweightKg != null ? String(p.bodyweightKg) : "");
+      setUsername(p.username);
       setPersona(p.persona);
       setUpdatedAt(p.updatedAt);
       setLoading(false);
@@ -34,6 +42,7 @@ export default function ProfilePage() {
     setStatus("saving");
     const n = Number(bodyweight);
     const profile: Profile = {
+      username,
       persona,
       bodyweightKg: bodyweight.trim() === "" || !Number.isFinite(n) ? null : n,
       updatedAt: new Date().toISOString(),
@@ -44,15 +53,38 @@ export default function ProfilePage() {
     setTimeout(() => setStatus("idle"), 1500);
   }
 
+  async function changePin() {
+    const sb = getSupabase();
+    if (!sb) return;
+    if (!isValidPin(newPin)) {
+      setPinError("PIN must be exactly 6 digits.");
+      setPinStatus("error");
+      return;
+    }
+    setPinStatus("saving");
+    setPinError("");
+    const { error } = await sb.auth.updateUser({ password: newPin });
+    if (error) {
+      setPinError(error.message);
+      setPinStatus("error");
+      return;
+    }
+    setNewPin("");
+    setPinStatus("saved");
+    setTimeout(() => setPinStatus("idle"), 1500);
+  }
+
   return (
     <main className="min-h-dvh pb-24">
       <header className="px-4 pb-2 pt-5">
         <h1 className="text-3xl font-extrabold tracking-tight text-white">
           Profile
         </h1>
-        {persona && (
+        {(username || persona) && (
           <p className="mt-1 text-sm font-medium text-accent">
-            {PERSONA_LABEL[persona]}
+            {username ? `@${username}` : ""}
+            {username && persona ? " · " : ""}
+            {persona ? PERSONA_LABEL[persona] : ""}
           </p>
         )}
       </header>
@@ -102,6 +134,39 @@ export default function ProfilePage() {
             </p>
           )}
         </div>
+
+        {isSupabaseConfigured && (
+          <div className="mt-4 rounded-2xl bg-card p-4">
+            <h2 className="font-semibold text-white">Change PIN</h2>
+            <p className="text-xs text-muted">Set a new 6-digit sign-in PIN.</p>
+            <label className="mt-4 flex items-center gap-3 rounded-xl bg-elevated px-3 py-2.5">
+              <input
+                inputMode="numeric"
+                type="password"
+                maxLength={6}
+                value={newPin}
+                onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
+                placeholder="New 6-digit PIN"
+                className="w-full bg-transparent text-center text-[16px] tracking-[0.3em] text-white placeholder:tracking-normal placeholder:text-faint focus:outline-none"
+                aria-label="New 6-digit PIN"
+              />
+            </label>
+            <button
+              onClick={changePin}
+              disabled={pinStatus === "saving"}
+              className="mt-4 w-full rounded-xl bg-elevated py-3 font-semibold text-white transition-colors hover:bg-hairline disabled:opacity-60"
+            >
+              {pinStatus === "saving"
+                ? "Updating…"
+                : pinStatus === "saved"
+                  ? "PIN updated ✓"
+                  : "Update PIN"}
+            </button>
+            {pinStatus === "error" && (
+              <p className="mt-2 text-center text-sm text-danger">{pinError}</p>
+            )}
+          </div>
+        )}
 
         {isSupabaseConfigured && (
           <button
