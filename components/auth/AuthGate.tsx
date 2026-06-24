@@ -29,15 +29,21 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     // Ignore the intermediate auth events fired mid sign-up; the sign-up
     // handler calls resolve() itself once the profile is fully written.
     if (isSigningUp()) return;
-    const {
-      data: { session },
-    } = await sb.auth.getSession();
-    if (!session) {
+    try {
+      const {
+        data: { session },
+      } = await sb.auth.getSession();
+      if (!session) {
+        setStatus("signedOut");
+        return;
+      }
+      const profile = await getProfile();
+      setStatus(profile.persona ? "ready" : "needPersona");
+    } catch {
+      // A failed/stalled session or profile read must not strand the user on
+      // the loading spinner — drop to login so a fresh sign-in recovers.
       setStatus("signedOut");
-      return;
     }
-    const profile = await getProfile();
-    setStatus(profile.persona ? "ready" : "needPersona");
   }, []);
 
   useEffect(() => {
@@ -45,10 +51,23 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     const sb = getSupabase();
     if (!sb) return;
     resolve();
+    // Never sit on the loading spinner forever (e.g. a stalled call): fall back
+    // to the login screen if we haven't resolved shortly after mount.
+    const timeout = setTimeout(() => {
+      setStatus((s) => (s === "loading" ? "signedOut" : s));
+    }, 8000);
     const {
       data: { subscription },
-    } = sb.auth.onAuthStateChange(() => resolve());
-    return () => subscription.unsubscribe();
+    } = sb.auth.onAuthStateChange(() => {
+      // Defer out of the auth-state-change callback. Calling getSession() or a
+      // DB read synchronously inside it can deadlock supabase-js's lock, which
+      // shows up as a permanent "Loading…" screen.
+      setTimeout(() => resolve(), 0);
+    });
+    return () => {
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
   }, [resolve]);
 
   if (status === "loading") {
