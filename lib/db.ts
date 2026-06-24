@@ -288,9 +288,12 @@ export async function getProfile(): Promise<Profile> {
   const sb = getSupabase();
   if (!sb) return lsRead<Profile>(LS_PROFILE, EMPTY_PROFILE);
 
+  // Read the persisted session (not getUser) — right after a sign-up/sign-in a
+  // networked getUser() can transiently return null and drop the read.
   const {
-    data: { user },
-  } = await sb.auth.getUser();
+    data: { session },
+  } = await sb.auth.getSession();
+  const user = session?.user;
   if (!user) return EMPTY_PROFILE;
 
   const { data, error } = await sb
@@ -314,8 +317,9 @@ export async function saveProfile(profile: Profile): Promise<void> {
     return;
   }
   const {
-    data: { user },
-  } = await sb.auth.getUser();
+    data: { session },
+  } = await sb.auth.getSession();
+  const user = session?.user;
   if (!user) return;
   await sb.from("profile").upsert({
     id: user.id,
@@ -344,6 +348,18 @@ export async function seedZeusRoutines(): Promise<void> {
       exercises: r.exercises.map((e) => ({ ...e, id: uid("re") })),
     });
   }
+}
+
+/**
+ * Seed Zeus routines without ever blocking sign-in: swallow any error and cap
+ * the wait, so a slow or failed seed can't strand the user on a "Setting up…"
+ * spinner. Missing routines can always be (re)created afterwards.
+ */
+export async function seedZeusRoutinesSafely(): Promise<void> {
+  await Promise.race([
+    seedZeusRoutines().catch(() => {}),
+    new Promise<void>((resolve) => setTimeout(resolve, 8000)),
+  ]);
 }
 
 /** Sign out and wipe this browser's local Zeus data (drafts, cached fallback). */

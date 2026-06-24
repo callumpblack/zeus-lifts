@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { Persona } from "@/lib/types";
 import { getSupabase } from "@/lib/supabase";
-import { saveProfile, seedZeusRoutines } from "@/lib/db";
+import { saveProfile, seedZeusRoutinesSafely } from "@/lib/db";
 import {
   cleanUsername,
   isValidPin,
@@ -77,9 +77,17 @@ export default function LoginScreen({ onAuthed }: Props) {
           bodyweightKg: null,
           updatedAt: new Date().toISOString(),
         });
-        if (persona === "zeus") await seedZeusRoutines();
+        if (persona === "zeus") await seedZeusRoutinesSafely();
+        // Clear the sign-up guard BEFORE resolving — otherwise AuthGate's
+        // resolve() ignores the auth event (it skips work mid sign-up) and
+        // leaves the user stranded here instead of signing them in.
+        setSigningUp(false);
         onAuthed();
       }
+    } catch (err) {
+      setError(
+        (err as Error)?.message || "Something went wrong. Please try again."
+      );
     } finally {
       setSigningUp(false);
       setBusy(false);

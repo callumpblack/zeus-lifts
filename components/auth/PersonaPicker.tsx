@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { Persona } from "@/lib/types";
-import { getProfile, saveProfile, seedZeusRoutines } from "@/lib/db";
+import { getProfile, saveProfile, seedZeusRoutinesSafely } from "@/lib/db";
 
 interface Props {
   /** Called once the persona is chosen and (for Zeus) routines are seeded. */
@@ -16,19 +16,29 @@ interface Props {
  */
 export default function PersonaPicker({ onDone }: Props) {
   const [busy, setBusy] = useState<Persona | null>(null);
+  const [error, setError] = useState("");
 
   async function choose(persona: Persona) {
     if (busy) return;
     setBusy(persona);
-    const existing = await getProfile();
-    await saveProfile({
-      username: existing.username,
-      persona,
-      bodyweightKg: existing.bodyweightKg,
-      updatedAt: new Date().toISOString(),
-    });
-    if (persona === "zeus") await seedZeusRoutines();
-    onDone();
+    setError("");
+    try {
+      const existing = await getProfile();
+      await saveProfile({
+        username: existing.username,
+        persona,
+        bodyweightKg: existing.bodyweightKg,
+        updatedAt: new Date().toISOString(),
+      });
+      if (persona === "zeus") await seedZeusRoutinesSafely();
+      onDone();
+    } catch (err) {
+      // Never strand the user on the spinner — surface the error and let them retry.
+      setError(
+        (err as Error)?.message || "Couldn’t finish setting up. Please try again."
+      );
+      setBusy(null);
+    }
   }
 
   return (
@@ -77,6 +87,8 @@ export default function PersonaPicker({ onDone }: Props) {
           </div>
         </button>
       </div>
+
+      {error && <p className="mt-4 text-sm text-danger">{error}</p>}
     </div>
   );
 }
