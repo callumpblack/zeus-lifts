@@ -25,6 +25,8 @@ interface Props {
   onCancel?: () => void;
   /** Pre-fill the profile name (e.g. the chosen Zeus/Hera persona). */
   defaultLabel?: string;
+  /** Pre-fill the form fields (e.g. confirmed persona profile data). */
+  defaults?: Partial<MacroInputs>;
 }
 
 const num = (s: string): number => {
@@ -42,22 +44,43 @@ export default function MacroOnboarding({
   onSaved,
   onCancel,
   defaultLabel,
+  defaults,
 }: Props) {
   const [label, setLabel] = useState(existing?.label ?? defaultLabel ?? "");
-  const [sex, setSex] = useState<Sex>(existing?.sex ?? "male");
-  const [dob, setDob] = useState(existing?.dateOfBirth ?? "");
+  const [sex, setSex] = useState<Sex>(existing?.sex ?? defaults?.sex ?? "male");
+  const [dob, setDob] = useState(
+    existing?.dateOfBirth ?? defaults?.dateOfBirth ?? ""
+  );
   const [weight, setWeight] = useState(
-    existing ? String(existing.weightKg) : ""
+    existing
+      ? String(existing.weightKg)
+      : defaults?.weightKg != null
+        ? String(defaults.weightKg)
+        : ""
   );
   const [height, setHeight] = useState(
-    existing ? String(existing.heightCm) : ""
+    existing
+      ? String(existing.heightCm)
+      : defaults?.heightCm != null
+        ? String(defaults.heightCm)
+        : ""
   );
-  const [activity, setActivity] = useState(existing?.activityLevel ?? 1.55);
-  const [goal, setGoal] = useState<Goal>(existing?.goal ?? "lose");
+  const [activity, setActivity] = useState(
+    existing?.activityLevel ?? defaults?.activityLevel ?? 1.55
+  );
+  const [goal, setGoal] = useState<Goal>(
+    existing?.goal ?? defaults?.goal ?? "lose"
+  );
   const [targetWeight, setTargetWeight] = useState(
-    existing?.targetWeightKg != null ? String(existing.targetWeightKg) : ""
+    existing?.targetWeightKg != null
+      ? String(existing.targetWeightKg)
+      : defaults?.targetWeightKg != null
+        ? String(defaults.targetWeightKg)
+        : ""
   );
-  const [deadline, setDeadline] = useState(existing?.goalDeadline ?? "");
+  const [deadline, setDeadline] = useState(
+    existing?.goalDeadline ?? defaults?.goalDeadline ?? ""
+  );
 
   // Manual overrides of the computed targets.
   const [manual, setManual] = useState(false);

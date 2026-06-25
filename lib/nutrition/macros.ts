@@ -16,20 +16,22 @@ export const KCAL_PER_KG = 7700;
 // Never prescribe an aggressive cut: cap the daily deficit and use a modest
 // lean-gain surplus.
 export const MAX_DAILY_DEFICIT = 750;
+// Standard cut deficit used when no explicit pace (target weight + deadline) is
+// given. Confirmed coaching default — reproduces the Zeus/Hera targets.
+export const DEFAULT_DAILY_DEFICIT = 500;
 export const GAIN_SURPLUS = 300;
 
-// Macro-split tuning. Protein is anchored per-lb of bodyweight and is set a
-// little higher when cutting / recomping to protect muscle; fat is taken as a
-// share of total calories; carbs fill the remainder. Because fat tracks
-// calories and protein tracks the goal, all three macros shift as you change
-// the goal (not just carbs).
+// Macro-split tuning (confirmed coaching standard, validated against the Zeus &
+// Hera profiles in docs/nutrition.md). Protein is anchored at 1.0 g/lb of
+// bodyweight; fat is a share of total calories; carbs fill the remainder. Fat
+// tracks calories, so fat and carbs still shift with the goal.
 const PROTEIN_PER_LB: Record<Goal, number> = {
-  lose: 1.1,
-  recomp: 1.1,
+  lose: 1.0,
+  recomp: 1.0,
   maintain: 1.0,
   gain: 1.0,
 };
-const FAT_CALORIE_SHARE = 0.25; // 25% of calories from fat
+const FAT_CALORIE_SHARE = 0.28; // 28% of calories from fat
 
 /** Exact age in years from a yyyy-mm-dd date of birth. */
 export function ageFromDOB(dob: string, on: string = todayISO()): number {
@@ -83,15 +85,15 @@ export function calculateMacros(inputs: MacroInputs): MacroResult {
   let dailyDelta = 0; // signed kcal adjustment to TDEE
 
   if (inputs.goal === "lose") {
-    // How fast do they *want* to lose? Fall back to a gentle 0.5 kg/week when
-    // we can't derive a pace (missing target/deadline).
-    let weeklyKg = 0.5;
+    // Default to the standard 500 kcal/day deficit; only derive a faster/slower
+    // pace when BOTH a target weight and a deadline are given (capped for safety).
+    let deficit = DEFAULT_DAILY_DEFICIT;
     if (inputs.targetWeightKg != null && inputs.goalDeadline) {
       const weeks = Math.max(daysBetween(todayISO(), inputs.goalDeadline) / 7, 1);
-      weeklyKg = Math.max(inputs.weightKg - inputs.targetWeightKg, 0) / weeks;
+      const weeklyKg = Math.max(inputs.weightKg - inputs.targetWeightKg, 0) / weeks;
+      deficit = (weeklyKg * KCAL_PER_KG) / 7;
     }
-    const wanted = (weeklyKg * KCAL_PER_KG) / 7;
-    dailyDelta = -Math.min(wanted, MAX_DAILY_DEFICIT);
+    dailyDelta = -Math.min(deficit, MAX_DAILY_DEFICIT);
   } else if (inputs.goal === "gain") {
     dailyDelta = GAIN_SURPLUS;
   }
