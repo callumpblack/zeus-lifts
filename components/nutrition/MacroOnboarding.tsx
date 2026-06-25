@@ -9,7 +9,11 @@ import type {
   Sex,
 } from "@/lib/nutrition/types";
 import { ACTIVITY_LEVELS } from "@/lib/nutrition/types";
-import { calculateMacros, GOAL_LABEL } from "@/lib/nutrition/macros";
+import {
+  calculateMacros,
+  GOAL_LABEL,
+  defaultWaterTargetMl,
+} from "@/lib/nutrition/macros";
 import { buildProfile, saveProfile } from "@/lib/nutrition/db";
 import {
   getProfile as getLiftingProfile,
@@ -137,7 +141,7 @@ export default function MacroOnboarding({
       label.trim(),
       inputs,
       targets,
-      existing?.waterTargetMl ?? 2500,
+      existing?.waterTargetMl ?? defaultWaterTargetMl(inputs.weightKg),
       existing
     );
     try {
@@ -328,6 +332,18 @@ export default function MacroOnboarding({
             <p className="mt-3 text-center text-xs text-muted">
               Eat around maintenance with high protein — recomposition comes
               from training, not the scale.
+            </p>
+          )}
+
+          {result.belowCalorieFloor && (
+            <p className="mt-2 text-center text-xs font-semibold text-[#FBBF24]">
+              Capped at the {sex === "male" ? "1,500" : "1,200"} kcal safety
+              floor — this target is too aggressive.
+            </p>
+          )}
+          {result.lowCarbs && (
+            <p className="mt-2 text-center text-xs font-semibold text-[#FBBF24]">
+              Carbs are very low (under 50 g) — consider easing the deficit.
             </p>
           )}
 

@@ -16,22 +16,23 @@ export const KCAL_PER_KG = 7700;
 // Never prescribe an aggressive cut: cap the daily deficit and use a modest
 // lean-gain surplus.
 export const MAX_DAILY_DEFICIT = 750;
-// Standard cut deficit used when no explicit pace (target weight + deadline) is
-// given. Confirmed coaching default — reproduces the Zeus/Hera targets.
-export const DEFAULT_DAILY_DEFICIT = 500;
 export const GAIN_SURPLUS = 300;
 
-// Macro-split tuning (confirmed coaching standard, validated against the Zeus &
-// Hera profiles in docs/nutrition.md). Protein is anchored at 1.0 g/lb of
-// bodyweight; fat is a share of total calories; carbs fill the remainder. Fat
-// tracks calories, so fat and carbs still shift with the goal.
+// Sex-based calorie floors — never prescribe a target below these (safety).
+const CALORIE_FLOOR: Record<Sex, number> = { male: 1500, female: 1200 };
+
+// Macro-split tuning. Protein is per-lb of bodyweight (by goal); fat is the
+// HIGHER of a per-lb minimum (hormonal-health floor) and a share of calories;
+// carbs fill the remainder.
 const PROTEIN_PER_LB: Record<Goal, number> = {
-  lose: 1.0,
-  recomp: 1.0,
-  maintain: 1.0,
-  gain: 1.0,
+  lose: 1.0, // higher end — protects muscle in a deficit
+  recomp: 1.0, // recomp also demands high protein
+  maintain: 0.82, // standard maintenance
+  gain: 0.9, // slightly elevated for muscle synthesis
 };
-const FAT_CALORIE_SHARE = 0.28; // 28% of calories from fat
+const FAT_MINIMUM_PER_LB = 0.35; // hard floor (g per lb of bodyweight)
+const FAT_CALORIE_SHARE = 0.25; // 25% of calories (used when above the minimum)
+const LOW_CARB_WARNING_G = 50; // warn below this — likely too aggressive a target
 
 /** Exact age in years from a yyyy-mm-dd date of birth. */
 export function ageFromDOB(dob: string, on: string = todayISO()): number {
@@ -66,6 +67,10 @@ export interface MacroResult extends MacroTargets {
   weeklyRateKg: number;
   /** Projected ISO date the target weight is reached (null if N/A). */
   projectedDate: string | null;
+  /** True when the target was raised to the sex-based calorie floor. */
+  belowCalorieFloor: boolean;
+  /** True when carbs fell below the low-carb warning threshold. */
+  lowCarbs: boolean;
 }
 
 const round = (n: number) => Math.round(n);
@@ -85,30 +90,37 @@ export function calculateMacros(inputs: MacroInputs): MacroResult {
   let dailyDelta = 0; // signed kcal adjustment to TDEE
 
   if (inputs.goal === "lose") {
-    // Default to the standard 500 kcal/day deficit; only derive a faster/slower
-    // pace when BOTH a target weight and a deadline are given (capped for safety).
-    let deficit = DEFAULT_DAILY_DEFICIT;
+    // Fall back to a gentle 0.5 kg/week pace when no target/deadline is given.
+    let weeklyKg = 0.5;
     if (inputs.targetWeightKg != null && inputs.goalDeadline) {
       const weeks = Math.max(daysBetween(todayISO(), inputs.goalDeadline) / 7, 1);
-      const weeklyKg = Math.max(inputs.weightKg - inputs.targetWeightKg, 0) / weeks;
-      deficit = (weeklyKg * KCAL_PER_KG) / 7;
+      weeklyKg = Math.max(inputs.weightKg - inputs.targetWeightKg, 0) / weeks;
     }
-    dailyDelta = -Math.min(deficit, MAX_DAILY_DEFICIT);
+    const wanted = (weeklyKg * KCAL_PER_KG) / 7;
+    dailyDelta = -Math.min(wanted, MAX_DAILY_DEFICIT);
   } else if (inputs.goal === "gain") {
     dailyDelta = GAIN_SURPLUS;
   }
 
-  const calories = roundTo10(tdeeValue + dailyDelta);
+  // Apply the sex-based calorie floor before splitting macros.
+  const floor = CALORIE_FLOOR[inputs.sex];
+  const uncapped = roundTo10(tdeeValue + dailyDelta);
+  const belowCalorieFloor = uncapped < floor;
+  const calories = belowCalorieFloor ? floor : uncapped;
 
-  // Goal-aware split: protein per-lb (by goal), fat as a share of calories,
-  // carbs as the remainder — so changing the goal shifts all three macros.
+  // Protein per-lb (by goal); fat = max(per-lb minimum, share of calories);
+  // carbs are the remainder.
   const lbs = inputs.weightKg * KG_TO_LBS;
   const protein_g = round(lbs * PROTEIN_PER_LB[inputs.goal]);
-  const fat_g = ceilTo5((calories * FAT_CALORIE_SHARE) / 9);
+  const fat_g = ceilTo5(
+    Math.max(lbs * FAT_MINIMUM_PER_LB, (calories * FAT_CALORIE_SHARE) / 9)
+  );
   const carbs_g = Math.max(round((calories - protein_g * 4 - fat_g * 9) / 4), 0);
+  const lowCarbs = carbs_g < LOW_CARB_WARNING_G;
 
-  // Realistic weekly pace + projected goal date from the *applied* delta.
-  const weeklyRateKg = (Math.abs(dailyDelta) * 7) / KCAL_PER_KG;
+  // Pace + projected date from the *effective* change (after any floor).
+  const effectiveDelta = calories - tdeeValue;
+  const weeklyRateKg = (Math.abs(effectiveDelta) * 7) / KCAL_PER_KG;
   let projectedDate: string | null = null;
   if (inputs.targetWeightKg != null && weeklyRateKg > 0) {
     const kgToGo = Math.abs(inputs.weightKg - inputs.targetWeightKg);
@@ -122,14 +134,26 @@ export function calculateMacros(inputs: MacroInputs): MacroResult {
     age,
     bmr: round(bmrValue),
     tdee: round(tdeeValue),
-    dailyDelta: round(dailyDelta),
+    dailyDelta: round(effectiveDelta),
     calories,
     protein_g,
     fat_g,
     carbs_g,
     weeklyRateKg,
     projectedDate,
+    belowCalorieFloor,
+    lowCarbs,
   };
+}
+
+/**
+ * Default daily water target: 35 ml per kg of bodyweight, rounded to the
+ * nearest 100 ml and clamped to a sane 2,000–4,000 ml range. Overridable in
+ * Settings.
+ */
+export function defaultWaterTargetMl(weightKg: number): number {
+  const ml = Math.round((35 * weightKg) / 100) * 100;
+  return Math.min(Math.max(ml, 2000), 4000);
 }
 
 function toISO(d: Date): string {

@@ -26,11 +26,11 @@ export interface ActivityLevel {
 }
 
 export const ACTIVITY_LEVELS: ActivityLevel[] = [
-  { value: 1.2, label: "Sedentary", hint: "Desk job, no exercise" },
+  { value: 1.2, label: "Sedentary", hint: "Desk job, little movement" },
   { value: 1.375, label: "Lightly active", hint: "1–3 sessions / week" },
   { value: 1.55, label: "Moderately active", hint: "3–5 sessions / week" },
   { value: 1.725, label: "Very active", hint: "6–7 hard sessions / week" },
-  { value: 1.9, label: "Extremely active", hint: "Athlete, 2× / day" },
+  { value: 1.9, label: "Athlete", hint: "2×/day or physical job + training" },
 ];
 
 /** The macro targets a profile is held to each day. */

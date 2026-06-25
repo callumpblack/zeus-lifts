@@ -3,15 +3,16 @@
 import { useEffect, useState } from "react";
 import type { Persona } from "@/lib/types";
 import { getProfile } from "@/lib/db";
-import { PERSONA_DEFAULTS } from "@/lib/nutrition/persona-defaults";
 import MacroOnboarding from "@/components/nutrition/MacroOnboarding";
 
+const PERSONA_LABEL: Record<Persona, string> = { zeus: "Zeus", hera: "Hera" };
+
 /**
- * Second step of first login (after the Zeus/Hera pick): fill in the single
- * shared profile that powers BOTH the lifting and nutrition sections. Reuses
- * the nutrition macro calculator, pre-filled with the persona's confirmed
- * profile data; on save it also syncs bodyweight to the lifting profile
- * (handled inside MacroOnboarding), so the two stay consistent.
+ * Second step of first login (after the profile pick): fill in the single
+ * shared profile that powers BOTH the lifting and nutrition sections. Targets
+ * are calculated generically from whatever the user enters; only the profile
+ * name is pre-filled from their chosen persona. On save it also syncs
+ * bodyweight to the lifting profile (handled inside MacroOnboarding).
  */
 export default function ProfileSetup({ onDone }: { onDone: () => void }) {
   const [persona, setPersona] = useState<Persona | null>(null);
@@ -19,8 +20,6 @@ export default function ProfileSetup({ onDone }: { onDone: () => void }) {
   useEffect(() => {
     getProfile().then((p) => setPersona(p.persona));
   }, []);
-
-  const defaults = persona ? PERSONA_DEFAULTS[persona] : undefined;
 
   return (
     <main className="min-h-dvh pb-10">
@@ -34,13 +33,12 @@ export default function ProfileSetup({ onDone }: { onDone: () => void }) {
         </p>
       </header>
       <div className="p-4">
-        {/* Wait for the persona so the form mounts already pre-filled. */}
+        {/* Wait for the persona so the name field mounts pre-filled. */}
         {persona === null ? (
           <p className="py-10 text-center text-muted">Loading…</p>
         ) : (
           <MacroOnboarding
-            defaultLabel={defaults?.label ?? ""}
-            defaults={defaults}
+            defaultLabel={PERSONA_LABEL[persona]}
             onSaved={() => onDone()}
           />
         )}

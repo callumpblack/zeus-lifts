@@ -5,7 +5,7 @@ how it works; **edit it to tell Claude how you want it to work.** If you change 
 rule here (e.g. a macro constant), say "apply the nutrition.md changes" and it'll
 be implemented to match.
 
-Last updated: 2026-06-25 (enriched with coaching session data)
+Last updated: 2026-06-25
 
 ---
 
@@ -14,11 +14,13 @@ Last updated: 2026-06-25 (enriched with coaching session data)
 A nutrition/macro tracker that lives inside Zeus Lifts as a second first-class
 section, reached via the **Lifting / Nutrition** pill at the top of the main
 screens. It shares the same app, the same Supabase project, and the same login.
+The nutrition system is **fully generic** — it calculates targets dynamically
+from each user's profile. No targets are hardcoded.
 
 ## How the two sections fit together
 
 - **Shared login** — username + 6-digit PIN (Supabase auth). One account.
-- **Unified onboarding** — first login is `sign in → pick Zeus/Hera → fill ONE
+- **Unified onboarding** — first login is `sign in → pick profile → fill ONE
   profile`. That single profile powers both sections: nutrition gets the macro
   targets, and the profile's weight syncs into the lifting bodyweight.
 - **One profile per login** (the household multi-profile switcher still exists in
@@ -59,83 +61,6 @@ All created by migration `0007_nutrition.sql`; the `recomp` goal needs
 
 ---
 
-## Confirmed profiles (source of truth for seeding / onboarding defaults)
-
-These are the real, calculated targets used in coaching sessions. Use these to
-pre-populate onboarding or validate that `macros.ts` produces matching output.
-
-### Zeus
-
-| Field | Value |
-|---|---|
-| DOB | 08/10/1997 (age 28) |
-| Sex | Male |
-| Height | 193 cm |
-| Current weight | 99.5 kg |
-| Goal weight | 85–90 kg |
-| Activity multiplier | 1.55 (moderately active) |
-| BMR | ~2,066 kcal |
-| TDEE | ~3,202 kcal |
-| Goal | Lose fat |
-| Daily deficit | 500 kcal |
-| **Calorie target** | **2,700 kcal** |
-| **Protein** | **219–220 g** (1 g/lb at 219 lbs) |
-| **Fat** | **85 g** (min 0.35 g/lb) |
-| **Carbs** | **~265 g** (remainder) |
-| High-activity day target | 3,200–3,400 kcal (gym + additional sport) |
-| Expected loss rate | ~0.5–0.7 kg/week |
-
-**Zeus — hard constraints that must be respected in meal suggestions:**
-- Hiatus hernia + IBS-type digestive sensitivity — no heat-based spices (Kashmiri
-  chilli, cumin, za'atar and similar removed; reintroduce only after 3–5 day reset)
-- No whole fruit (texture aversion); blended/smoothie fruit is fine; banana excluded always
-- Coffee on empty stomach flagged as problematic — do not suggest pre-breakfast caffeine
-- Skin-on poultry adds unnecessary fat — default to skinless
-- After-dinner refined carb habit (chocolate, cornflakes) is the main sabotage point
-
-**Zeus — training day calorie cycling:**
-Standard days: 2,700 kcal. Days with gym session plus additional sport (e.g. padel,
-swimming, running): increase to 3,200–3,400 kcal. Holding the same deficit on
-high-activity days risks muscle loss and metabolic adaptation.
-
----
-
-### Hera
-
-| Field | Value |
-|---|---|
-| DOB | 12/08/1997 (age 28) |
-| Sex | Female |
-| Height | 162.5 cm (5 ft 4) |
-| Current weight | 57.6 kg (9 st 1 lb) |
-| Goal weight | 53.1 kg (8 st 5 lb) |
-| Activity multiplier | 1.55 (moderately active) |
-| BMR | ~1,291 kcal |
-| TDEE | ~2,001 kcal |
-| Goal | Lose fat |
-| Daily deficit | 500 kcal |
-| **Calorie target** | **1,500 kcal** (floor: 1,400 kcal) |
-| **Protein** | **127 g** (1 g/lb at 127 lbs) |
-| **Fat** | **50 g** (min 0.35 g/lb) |
-| **Carbs** | **~135 g** (remainder) |
-| Expected loss rate | ~0.4–0.5 kg/week |
-
-**Hera — hard constraints:**
-- Digestive condition: lighter evening meals; minimum 2-hour gap before lying down
-- Prefers to reduce pork
-- Cycle-based nutrition advice to be considered (requested)
-- Hydration currently below target (1–1.5 L/day); goal is 2–2.5 L/day
-
----
-
-## Shared meal context
-
-Zeus and Hera share lunch and dinner most days. When displaying shared meals,
-protein portions are calculated on a **60/40 split by weight (Zeus/Hera)**,
-approximately 300 g / 200 g of protein source respectively.
-
----
-
 ## The macro calculator  ← the part you're most likely to tune
 
 All of this lives in [`lib/nutrition/macros.ts`](../lib/nutrition/macros.ts).
@@ -144,9 +69,18 @@ Change a number here and tell Claude to apply it.
 **1. BMR** (Mifflin-St Jeor):
 `(10 × kg) + (6.25 × cm) − (5 × age)` then `+5` (male) / `−161` (female).
 
-**2. TDEE** = BMR × activity multiplier (1.2 sedentary → 1.9 athlete).
+**2. TDEE** = BMR × activity multiplier:
+
+| Activity level | Multiplier | Who it fits |
+|---|---|---|
+| Sedentary | 1.2 | Desk job, little movement outside exercise |
+| Lightly active | 1.375 | 1–3 training sessions/week |
+| Moderately active | 1.55 | 3–5 sessions/week |
+| Very active | 1.725 | 6–7 hard sessions/week |
+| Athlete | 1.9 | Twice-daily training or physical job + training |
 
 **3. Calorie target** (by goal):
+
 | Goal | Calories |
 |---|---|
 | Lose fat | TDEE − deficit |
@@ -154,72 +88,62 @@ Change a number here and tell Claude to apply it.
 | Gain muscle | TDEE + **300** (`GAIN_SURPLUS`) |
 | Lose fat & gain muscle (recomp) | TDEE (maintenance) |
 
-Deficit (lose) = **500 kcal/day default** (`DEFAULT_DAILY_DEFICIT`). If BOTH a
-target weight and a deadline are set, it's derived from that pace instead
-(weekly-kg × 7700 / 7), **capped at 750 kcal/day** (`MAX_DAILY_DEFICIT`).
+Deficit (lose) = weekly-kg-pace × 7700 / 7, **capped at 750 kcal/day**
+(`MAX_DAILY_DEFICIT`). With no target weight/deadline it assumes **0.5 kg/week**.
+
+A **calorie floor** is enforced to prevent unsafe targets:
+- Men: never below **1,500 kcal/day**
+- Women: never below **1,200 kcal/day**
+
+If the calculated target falls below the floor, cap it there and surface a
+warning in the UI.
 
 **4. Macro split** (the tunable constants):
-| Constant | Current value | Notes |
+
+| Constant | Value | Rationale |
 |---|---|---|
-| `PROTEIN_PER_LB` (all goals) | **1.0 g/lb** (≈ 2.2 g/kg) | confirmed standard |
-| `FAT_CALORIE_SHARE` | **0.28** (28% of calories) | matches confirmed fat targets |
+| `PROTEIN_PER_LB.lose` | **1.0 g/lb** | Higher end — protects muscle in a deficit |
+| `PROTEIN_PER_LB.recomp` | **1.0 g/lb** | Same — recomp demands high protein |
+| `PROTEIN_PER_LB.maintain` | **0.82 g/lb** | Standard maintenance target |
+| `PROTEIN_PER_LB.gain` | **0.9 g/lb** | Slightly elevated for muscle synthesis |
+| `FAT_MINIMUM_PER_LB` | **0.35 g/lb** | Hard floor for hormonal health |
+| `FAT_CALORIE_SHARE` | **0.25** | 25% of total calories; used if above the minimum |
 | Carbs | remainder | calories − protein·4 − fat·9, ÷4 |
 
-Protein is per-lb of bodyweight; fat is a share of calories; carbs fill the
-rest. Fat tracks calories, so fat and carbs still shift with the goal.
+**How fat is calculated:** take the higher of `FAT_MINIMUM_PER_LB × bodyweight`
+and `FAT_CALORIE_SHARE × target_calories`. This ensures the minimum is always
+hit, and heavier users at higher calorie targets get a proportional fat allocation.
 
-### Protein level — RESOLVED & APPLIED
-**1.0 g/lb** across all goals (Zeus ~219 g, Hera ~127 g) is applied in
-`macros.ts`. Combined with fat at **28% of calories** and a **500 kcal/day**
-default deficit, the calculator reproduces the confirmed Zeus
-(2,700 / 219 / 85 / 265) and Hera (1,500 / 127 / 50 / 135) targets.
+Carbs fill whatever calories remain after protein and fat are accounted for.
+If carbs calculate to below 50 g, surface a warning — this is uncomfortably low
+for most people and may indicate the calorie target itself is too aggressive.
 
----
+**5. Training day calorie cycling (optional feature):**
 
-## Supplements — Zeus (audited and confirmed)
+Users who train can optionally enable calorie cycling. When enabled:
+- **Training days:** standard target calories
+- **Rest days:** target calories − 150 to 200 kcal (reduce carbs only, keep protein
+  and fat fixed)
+- **High-activity days** (multiple sessions or session + sport): target calories
+  + 300 to 500 kcal (increase carbs)
 
-These are active and should appear in any supplement checklist UI:
+This is opt-in at the profile level (`calorie_cycling_enabled: boolean`). Default off.
 
-| Supplement | Dose | Timing |
-|---|---|---|
-| Creatine monohydrate | Standard (3–5 g) | Any time |
-| Lion's mane | Per product | Morning |
-| Omega-3 (Together Natural Algae DHA) | 2 capsules (660 mg EPA+DHA) | With food |
-| Magnesium glycinate | Per product | 60–90 min before bed |
-| Vitamin D3 | 2,000 IU | With breakfast |
-| L-Glutamine powder (MyProtein) | 5 g | Post-workout |
-| High5 ZERO electrolyte tablet | 1 tab | During training |
-| Whey protein isolate (MyProtein Grass-Fed, vanilla) | 1 scoop (~25 g protein) | Post-gym with 250 ml semi-skimmed milk |
+**6. Shared meal mode (optional feature):**
 
-Do not suggest probiotic pills — kefir in the daily smoothie provides sufficient
-coverage and is already logged.
+When two profiles are active in a household and share meals, each profile can
+specify a **meal split ratio** (e.g. 60/40 or 50/50 by weight). When logging a
+shared meal, the app divides the total food weight and macros between the two
+profiles according to their ratio. Each profile's log receives only its own
+share. The split is configurable per profile in Settings.
 
 ---
 
-## Gut health protocols — Zeus (inform meal suggestions)
+## Water target
 
-- Daily kefir + Greek yoghurt smoothie (50/50 blend, ground flaxseed, optional
-  whey scoop) — ~41 g protein with whey. This is a confirmed snack/breakfast item.
-- Sauerkraut or kimchi for microbiome diversity — include where practical
-- Psyllium husk 5 g/day for soluble fibre
-- Fresh ginger tea — especially post-meal if digestive discomfort
-- Avoid suggesting coffee before breakfast or on an empty stomach
-
----
-
-## Spice reintroduction plan — Zeus
-
-Following a significant bloating episode (June 2026), all heat-based spices were
-removed. Reintroduction timeline:
-
-- **Days 1–5:** No spices at all. Herbs only (basil, parsley, dill, oregano).
-- **Week 2 onwards:** Mild cooked herbs and anti-inflammatory seasonings only
-  (turmeric, cinnamon, ginger — cooked in, not raw/heavy).
-- **4–6 weeks:** Mild coconut-based or creamy curry variants may be trialled.
-- **Persistent avoid:** Heavy traditional curries (Kashmiri chilli, cumin-heavy
-  dishes, za'atar) are likely permanent triggers at high quantities.
-
-Do not suggest spiced meals for Zeus until the reintroduction phase is confirmed complete.
+Default: **35 ml per kg of bodyweight**, rounded to nearest 100 ml.
+Minimum shown to user: 2,000 ml. Maximum default cap: 4,000 ml.
+User can override manually in Settings.
 
 ---
 
