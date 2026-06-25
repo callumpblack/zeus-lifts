@@ -51,11 +51,12 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     const sb = getSupabase();
     if (!sb) return;
     resolve();
-    // Never sit on the loading spinner forever (e.g. a stalled call): fall back
-    // to the login screen if we haven't resolved shortly after mount.
+    // Never sit on the loading spinner for more than a few seconds: fall back
+    // to the login screen if we haven't resolved. (getSession reads the cached
+    // session, so the normal path settles in well under a second.)
     const timeout = setTimeout(() => {
       setStatus((s) => (s === "loading" ? "signedOut" : s));
-    }, 8000);
+    }, 5000);
     const {
       data: { subscription },
     } = sb.auth.onAuthStateChange(() => {

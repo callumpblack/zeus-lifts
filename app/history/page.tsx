@@ -12,6 +12,7 @@ import {
 } from "@/lib/format";
 import BottomNav from "@/components/BottomNav";
 import ExerciseImage from "@/components/ExerciseImage";
+import ModuleToggle from "@/components/nutrition/ModuleToggle";
 import { ChevronDownIcon, HistoryIcon } from "@/components/icons";
 
 export default function HistoryPage() {
@@ -28,7 +29,8 @@ export default function HistoryPage() {
   return (
     <main className="min-h-dvh pb-24">
       <header className="px-4 pb-2 pt-5">
-        <h1 className="text-3xl font-extrabold tracking-tight text-white">
+        <ModuleToggle />
+        <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-white">
           History
         </h1>
       </header>

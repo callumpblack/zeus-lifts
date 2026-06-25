@@ -7,6 +7,7 @@ import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import { isValidPin } from "@/lib/auth";
 import { formatWorkoutDate } from "@/lib/format";
 import BottomNav from "@/components/BottomNav";
+import ModuleToggle from "@/components/nutrition/ModuleToggle";
 import { UserIcon } from "@/components/icons";
 
 const PERSONA_LABEL: Record<Persona, string> = {
@@ -82,7 +83,8 @@ export default function ProfilePage() {
   return (
     <main className="min-h-dvh pb-24">
       <header className="px-4 pb-2 pt-5">
-        <h1 className="text-3xl font-extrabold tracking-tight text-white">
+        <ModuleToggle />
+        <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-white">
           Profile
         </h1>
         {(username || persona) && (
