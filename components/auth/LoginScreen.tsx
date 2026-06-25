@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import type { Persona } from "@/lib/types";
 import { getSupabase } from "@/lib/supabase";
-import { saveProfile, seedZeusRoutinesSafely } from "@/lib/db";
+import { saveProfile } from "@/lib/db";
 import {
   cleanUsername,
   isValidPin,
@@ -24,7 +23,6 @@ export default function LoginScreen({ onAuthed }: Props) {
   const [mode, setMode] = useState<Mode>("signin");
   const [username, setUsername] = useState("");
   const [pin, setPin] = useState("");
-  const [persona, setPersona] = useState<Persona>("zeus");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -71,13 +69,13 @@ export default function LoginScreen({ onAuthed }: Props) {
           );
           return;
         }
+        // Persona + profile are chosen on the next screens, not here.
         await saveProfile({
           username: cleanUsername(username),
-          persona,
+          persona: null,
           bodyweightKg: null,
           updatedAt: new Date().toISOString(),
         });
-        if (persona === "zeus") await seedZeusRoutinesSafely();
         // Clear the sign-up guard BEFORE resolving — otherwise AuthGate's
         // resolve() ignores the auth event (it skips work mid sign-up) and
         // leaves the user stranded here instead of signing them in.
@@ -124,25 +122,6 @@ export default function LoginScreen({ onAuthed }: Props) {
           aria-label="6-digit PIN"
         />
 
-        {mode === "signup" && (
-          <div className="grid grid-cols-2 gap-2">
-            {(["zeus", "hera"] as Persona[]).map((p) => (
-              <button
-                type="button"
-                key={p}
-                onClick={() => setPersona(p)}
-                className={`rounded-xl py-3 text-sm font-semibold transition-colors ${
-                  persona === p
-                    ? "bg-accent text-ink"
-                    : "bg-elevated text-white hover:bg-hairline"
-                }`}
-              >
-                {p === "zeus" ? "⚡ Zeus" : "🌙 Hera"}
-              </button>
-            ))}
-          </div>
-        )}
-
         <button
           type="submit"
           disabled={busy}
@@ -169,12 +148,6 @@ export default function LoginScreen({ onAuthed }: Props) {
           ? "Need an account? Create one"
           : "Already have an account? Sign in"}
       </button>
-
-      {mode === "signup" && (
-        <p className="mt-3 text-xs text-faint">
-          Zeus starts with the 4 routines · Hera starts blank
-        </p>
-      )}
     </div>
   );
 }
