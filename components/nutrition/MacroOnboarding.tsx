@@ -65,6 +65,7 @@ export default function MacroOnboarding({
     existing?.targets ?? { calories: 0, protein_g: 0, fat_g: 0, carbs_g: 0 }
   );
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   const inputs: MacroInputs | null = useMemo(() => {
     if (!dob || num(weight) <= 0 || num(height) <= 0) return null;
@@ -75,8 +76,14 @@ export default function MacroOnboarding({
       heightCm: num(height),
       activityLevel: activity,
       goal,
-      targetWeightKg: goal === "maintain" ? null : targetWeight ? num(targetWeight) : null,
-      goalDeadline: goal === "maintain" ? null : deadline || null,
+      targetWeightKg:
+        goal === "maintain" || goal === "recomp"
+          ? null
+          : targetWeight
+            ? num(targetWeight)
+            : null,
+      goalDeadline:
+        goal === "maintain" || goal === "recomp" ? null : deadline || null,
     };
   }, [sex, dob, weight, height, activity, goal, targetWeight, deadline]);
 
@@ -102,6 +109,7 @@ export default function MacroOnboarding({
   async function handleSave() {
     if (!inputs || !canSave) return;
     setSaving(true);
+    setSaveError("");
     const profile = buildProfile(
       label.trim(),
       inputs,
@@ -109,7 +117,16 @@ export default function MacroOnboarding({
       existing?.waterTargetMl ?? 2500,
       existing
     );
-    await saveProfile(profile);
+    try {
+      await saveProfile(profile);
+    } catch (err) {
+      setSaveError(
+        (err as Error)?.message ||
+          "Couldn’t save your profile. Please try again."
+      );
+      setSaving(false);
+      return;
+    }
     setActiveProfileId(profile.id);
     // Keep the shared lifting profile's bodyweight in step so both sections
     // read the same weight (used by assisted-exercise logic).
@@ -208,12 +225,12 @@ export default function MacroOnboarding({
       </Field>
 
       <Field label="Goal">
-        <div className="grid grid-cols-3 gap-2">
-          {(["lose", "maintain", "gain"] as Goal[]).map((g) => (
+        <div className="grid grid-cols-2 gap-2">
+          {(["lose", "maintain", "gain", "recomp"] as Goal[]).map((g) => (
             <button
               key={g}
               onClick={() => setGoal(g)}
-              className={`rounded-xl py-2.5 text-xs font-semibold transition-colors ${
+              className={`rounded-xl px-2 py-3 text-xs font-semibold leading-tight transition-colors ${
                 goal === g ? "bg-accent text-ink" : "bg-elevated text-muted"
               }`}
             >
@@ -223,7 +240,7 @@ export default function MacroOnboarding({
         </div>
       </Field>
 
-      {goal !== "maintain" && (
+      {(goal === "lose" || goal === "gain") && (
         <div className="grid grid-cols-2 gap-3">
           <Field label="Target weight">
             <Unit unit="kg">
@@ -276,12 +293,18 @@ export default function MacroOnboarding({
             <Stat label="Carbs" value={`${targets.carbs_g}g`} color="#A78BFA" />
           </div>
 
-          {goal !== "maintain" && (
+          {(goal === "lose" || goal === "gain") && (
             <p className="mt-3 text-center text-xs text-muted">
               ≈ {result.weeklyRateKg.toFixed(2)} kg/week{" "}
               {goal === "lose" ? "loss" : "gain"}
               {result.projectedDate &&
                 ` · goal by ${formatShortDate(result.projectedDate)}`}
+            </p>
+          )}
+          {goal === "recomp" && (
+            <p className="mt-3 text-center text-xs text-muted">
+              Eat around maintenance with high protein — recomposition comes
+              from training, not the scale.
             </p>
           )}
 
@@ -324,6 +347,10 @@ export default function MacroOnboarding({
           {saving ? "Saving…" : existing ? "Save changes" : "Save & start tracking"}
         </button>
       </div>
+
+      {saveError && (
+        <p className="text-center text-sm text-danger">{saveError}</p>
+      )}
     </div>
   );
 }

@@ -200,7 +200,8 @@ export async function saveProfile(p: NutritionProfile): Promise<void> {
     return;
   }
   // user_id is omitted on purpose — the column defaults to auth.uid().
-  await sb.from("nutrition_profiles").upsert(profileToRow(p));
+  const { error } = await sb.from("nutrition_profiles").upsert(profileToRow(p));
+  if (error) throw new Error(error.message);
 }
 
 export async function deleteProfile(id: string): Promise<void> {

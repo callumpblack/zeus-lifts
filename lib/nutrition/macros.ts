@@ -18,6 +18,19 @@ export const KCAL_PER_KG = 7700;
 export const MAX_DAILY_DEFICIT = 750;
 export const GAIN_SURPLUS = 300;
 
+// Macro-split tuning. Protein is anchored per-lb of bodyweight and is set a
+// little higher when cutting / recomping to protect muscle; fat is taken as a
+// share of total calories; carbs fill the remainder. Because fat tracks
+// calories and protein tracks the goal, all three macros shift as you change
+// the goal (not just carbs).
+const PROTEIN_PER_LB: Record<Goal, number> = {
+  lose: 1.1,
+  recomp: 1.1,
+  maintain: 1.0,
+  gain: 1.0,
+};
+const FAT_CALORIE_SHARE = 0.25; // 25% of calories from fat
+
 /** Exact age in years from a yyyy-mm-dd date of birth. */
 export function ageFromDOB(dob: string, on: string = todayISO()): number {
   const b = fromISODate(dob);
@@ -85,11 +98,11 @@ export function calculateMacros(inputs: MacroInputs): MacroResult {
 
   const calories = roundTo10(tdeeValue + dailyDelta);
 
-  // Macro split: protein anchors at 1g/lb bodyweight, fat at a 0.35g/lb floor
-  // (rounded up to the nearest 5g), carbs fill the remaining calories.
+  // Goal-aware split: protein per-lb (by goal), fat as a share of calories,
+  // carbs as the remainder — so changing the goal shifts all three macros.
   const lbs = inputs.weightKg * KG_TO_LBS;
-  const protein_g = round(lbs * 1);
-  const fat_g = ceilTo5(lbs * 0.35);
+  const protein_g = round(lbs * PROTEIN_PER_LB[inputs.goal]);
+  const fat_g = ceilTo5((calories * FAT_CALORIE_SHARE) / 9);
   const carbs_g = Math.max(round((calories - protein_g * 4 - fat_g * 9) / 4), 0);
 
   // Realistic weekly pace + projected goal date from the *applied* delta.
@@ -128,10 +141,12 @@ export const GOAL_LABEL: Record<Goal, string> = {
   lose: "Lose fat",
   maintain: "Maintain",
   gain: "Gain muscle",
+  recomp: "Lose fat & gain muscle",
 };
 
 export const GOAL_VERB: Record<Goal, string> = {
   lose: "loss",
   maintain: "maintenance",
   gain: "gain",
+  recomp: "recomposition",
 };

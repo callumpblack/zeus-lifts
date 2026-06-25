@@ -1,7 +1,7 @@
 // Shared domain types for the Zeus Lifts nutrition tracker.
 
 export type Sex = "male" | "female";
-export type Goal = "lose" | "maintain" | "gain";
+export type Goal = "lose" | "maintain" | "gain" | "recomp";
 export type MealType = "breakfast" | "lunch" | "dinner" | "snack";
 
 export const MEAL_TYPES: MealType[] = [
