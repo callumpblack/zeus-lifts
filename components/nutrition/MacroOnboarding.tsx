@@ -11,6 +11,10 @@ import type {
 import { ACTIVITY_LEVELS } from "@/lib/nutrition/types";
 import { calculateMacros, GOAL_LABEL } from "@/lib/nutrition/macros";
 import { buildProfile, saveProfile } from "@/lib/nutrition/db";
+import {
+  getProfile as getLiftingProfile,
+  saveProfile as saveLiftingProfile,
+} from "@/lib/db";
 import { setActiveProfileId } from "@/lib/nutrition/active-profile";
 import { formatShortDate } from "@/lib/nutrition/dates";
 import { SparklesIcon } from "./icons";
@@ -19,6 +23,8 @@ interface Props {
   existing?: NutritionProfile;
   onSaved: (profile: NutritionProfile) => void;
   onCancel?: () => void;
+  /** Pre-fill the profile name (e.g. the chosen Zeus/Hera persona). */
+  defaultLabel?: string;
 }
 
 const num = (s: string): number => {
@@ -31,8 +37,13 @@ const num = (s: string): number => {
  * in settings. Inputs flow live into a Mifflin-St Jeor summary; the user can
  * fine-tune the final targets before saving.
  */
-export default function MacroOnboarding({ existing, onSaved, onCancel }: Props) {
-  const [label, setLabel] = useState(existing?.label ?? "");
+export default function MacroOnboarding({
+  existing,
+  onSaved,
+  onCancel,
+  defaultLabel,
+}: Props) {
+  const [label, setLabel] = useState(existing?.label ?? defaultLabel ?? "");
   const [sex, setSex] = useState<Sex>(existing?.sex ?? "male");
   const [dob, setDob] = useState(existing?.dateOfBirth ?? "");
   const [weight, setWeight] = useState(
@@ -100,6 +111,20 @@ export default function MacroOnboarding({ existing, onSaved, onCancel }: Props) 
     );
     await saveProfile(profile);
     setActiveProfileId(profile.id);
+    // Keep the shared lifting profile's bodyweight in step so both sections
+    // read the same weight (used by assisted-exercise logic).
+    try {
+      const lifting = await getLiftingProfile();
+      if (lifting.persona) {
+        await saveLiftingProfile({
+          ...lifting,
+          bodyweightKg: profile.weightKg,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    } catch {
+      /* non-fatal */
+    }
     onSaved(profile);
   }
 

@@ -4,10 +4,17 @@ import { useCallback, useEffect, useState } from "react";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import { isSigningUp } from "@/lib/auth";
 import { getProfile } from "@/lib/db";
+import { getProfiles as getNutritionProfiles } from "@/lib/nutrition/db";
 import LoginScreen from "./LoginScreen";
 import PersonaPicker from "./PersonaPicker";
+import ProfileSetup from "./ProfileSetup";
 
-type Status = "loading" | "signedOut" | "needPersona" | "ready";
+type Status =
+  | "loading"
+  | "signedOut"
+  | "needPersona"
+  | "needProfile"
+  | "ready";
 
 /**
  * Gates the whole app behind Supabase Auth when it's configured:
@@ -38,7 +45,15 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
         return;
       }
       const profile = await getProfile();
-      setStatus(profile.persona ? "ready" : "needPersona");
+      if (!profile.persona) {
+        setStatus("needPersona");
+        return;
+      }
+      // One shared profile: require the full (nutrition-backed) profile before
+      // entering either section, so lifting and nutrition work from the same
+      // data. Also catches existing accounts that predate this step.
+      const nutritionProfiles = await getNutritionProfiles();
+      setStatus(nutritionProfiles.length === 0 ? "needProfile" : "ready");
     } catch {
       // A failed/stalled session or profile read must not strand the user on
       // the loading spinner — drop to login so a fresh sign-in recovers.
@@ -81,6 +96,9 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   if (status === "signedOut") return <LoginScreen onAuthed={resolve} />;
   if (status === "needPersona") {
     return <PersonaPicker onDone={resolve} />;
+  }
+  if (status === "needProfile") {
+    return <ProfileSetup onDone={resolve} />;
   }
   return <>{children}</>;
 }
