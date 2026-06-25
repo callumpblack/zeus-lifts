@@ -5,7 +5,15 @@ single blue accent, no login. Built with **Next.js 14 (App Router) + TypeScript
 + Tailwind CSS**, with **Supabase (Postgres)** for persistence.
 
 > Runs out of the box on `localStorage` — add Supabase keys later to sync across
-> devices. No auth, single user.
+> devices.
+
+> **Note:** this README covers the original lifting tracker. The app has since
+> gained **username + PIN auth** (Supabase, RLS) and a full **Nutrition** module.
+> See [`docs/nutrition.md`](docs/nutrition.md) for the nutrition tracker (design,
+> data model, and the tunable macro formulas) and
+> [`docs/google-sign-in-upgrade.md`](docs/google-sign-in-upgrade.md) for the
+> planned Google login. Migrations `0001`–`0008` apply in order in the Supabase
+> SQL editor.
 
 ---
 
