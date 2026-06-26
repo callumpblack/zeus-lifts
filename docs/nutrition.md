@@ -118,16 +118,20 @@ Carbs fill whatever calories remain after protein and fat are accounted for.
 If carbs calculate to below 50 g, surface a warning — this is uncomfortably low
 for most people and may indicate the calorie target itself is too aggressive.
 
-**5. Training day calorie cycling (optional feature):**
+**5. Training-day calorie cycling — BUILT (opt-in):**
 
-Users who train can optionally enable calorie cycling. When enabled:
-- **Training days:** standard target calories
-- **Rest days:** target calories − 150 to 200 kcal (reduce carbs only, keep protein
-  and fat fixed)
-- **High-activity days** (multiple sessions or session + sport): target calories
-  + 300 to 500 kcal (increase carbs)
+Toggle in Nutrition → Settings (`calorie_cycling_enabled`, default off; needs
+migration `0009`). When on, the daily dashboard target **auto-adjusts from that
+day's lifting load** — read straight from the lifting tracker, no manual marking
+— and carbs absorb the change (protein & fat fixed):
+- **Rest day** (no completed workout): −175 kcal
+- **Training day** (one normal session): unchanged
+- **Heavy / double day** (2+ sessions, or a single session ≥ 1.5× your average
+  session volume): +300 to +500 kcal, scaled by how heavy
 
-This is opt-in at the profile level (`calorie_cycling_enabled: boolean`). Default off.
+Logic lives in `lib/nutrition/cycling.ts`; "load" = total lifted volume (kg), and
+the heavy-day threshold is relative to your own average session, so it adapts.
+A badge on the dashboard shows the day's tier and the applied adjustment.
 
 **6. Shared meal mode (optional feature):**
 

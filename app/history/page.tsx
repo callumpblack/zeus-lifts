@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Workout } from "@/lib/types";
-import { getWorkouts } from "@/lib/db";
+import { getWorkouts, deleteWorkout } from "@/lib/db";
 import {
   completedSetCount,
   formatDuration,
@@ -13,7 +13,7 @@ import {
 import BottomNav from "@/components/BottomNav";
 import ExerciseImage from "@/components/ExerciseImage";
 import ModuleToggle from "@/components/nutrition/ModuleToggle";
-import { ChevronDownIcon, HistoryIcon } from "@/components/icons";
+import { ChevronDownIcon, HistoryIcon, TrashIcon } from "@/components/icons";
 
 export default function HistoryPage() {
   const [workouts, setWorkouts] = useState<Workout[] | null>(null);
@@ -25,6 +25,15 @@ export default function HistoryPage() {
       setWorkouts(all.filter((w) => w.finishedAt));
     })();
   }, []);
+
+  async function handleDelete(id: string, name: string) {
+    if (!window.confirm(`Delete “${name || "Workout"}”? This can’t be undone.`)) {
+      return;
+    }
+    setWorkouts((ws) => (ws ? ws.filter((w) => w.id !== id) : ws)); // optimistic
+    if (expanded === id) setExpanded(null);
+    await deleteWorkout(id);
+  }
 
   return (
     <main className="min-h-dvh pb-24">
@@ -113,6 +122,14 @@ export default function HistoryPage() {
                         ))}
                       </ul>
                     )}
+
+                    <button
+                      onClick={() => handleDelete(w.id, w.name)}
+                      className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-elevated py-2.5 text-sm font-semibold text-danger transition-colors hover:bg-hairline"
+                    >
+                      <TrashIcon size={16} />
+                      Delete workout
+                    </button>
                   </div>
                 )}
               </div>

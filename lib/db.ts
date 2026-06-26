@@ -276,6 +276,20 @@ export async function saveWorkout(workout: Workout): Promise<void> {
   }
 }
 
+// ── Delete a completed workout ───────────────────────────────────────────────
+export async function deleteWorkout(id: string): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) {
+    lsWrite(
+      LS_WORKOUTS,
+      lsRead<Workout[]>(LS_WORKOUTS, []).filter((w) => w.id !== id)
+    );
+    return;
+  }
+  // workout_exercises and workout_sets cascade on delete (FK).
+  await sb.from("workouts").delete().eq("id", id);
+}
+
 // ── Profile (per-user when authenticated) ────────────────────────────────────
 const EMPTY_PROFILE: Profile = {
   username: null,

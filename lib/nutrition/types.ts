@@ -59,6 +59,8 @@ export interface NutritionProfile extends MacroInputs {
   label: string;
   targets: MacroTargets;
   waterTargetMl: number;
+  /** When on, the daily target auto-adjusts from that day's lifting load. */
+  calorieCyclingEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }

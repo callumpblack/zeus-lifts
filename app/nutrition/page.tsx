@@ -14,6 +14,11 @@ import {
 } from "@/lib/nutrition/db";
 import { useActiveProfileId } from "@/lib/nutrition/active-profile";
 import { relativeDayLabel, todayISO } from "@/lib/nutrition/dates";
+import {
+  applyCycle,
+  getDayActivity,
+  type DayActivity,
+} from "@/lib/nutrition/cycling";
 import NutritionNav from "@/components/nutrition/NutritionNav";
 import NutritionHeader from "@/components/nutrition/NutritionHeader";
 import MacroSummary from "@/components/nutrition/MacroSummary";
@@ -29,6 +34,7 @@ export default function NutritionDashboard() {
   const [activeId, setActiveId] = useActiveProfileId();
   const [logs, setLogs] = useState<FoodLog[]>([]);
   const [water, setWater] = useState(0);
+  const [activity, setActivity] = useState<DayActivity | null>(null);
 
   const reloadProfiles = useCallback(async () => {
     setProfiles(await getProfiles());
@@ -56,6 +62,10 @@ export default function NutritionDashboard() {
     ]);
     setLogs(f);
     setWater(w);
+    // Auto-adjust the target from today's lifting load when cycling is on.
+    setActivity(
+      profile.calorieCyclingEnabled ? await getDayActivity(date) : null
+    );
   }, [profile, date]);
 
   useEffect(() => {
@@ -94,6 +104,8 @@ export default function NutritionDashboard() {
   // ── Normal dashboard ──────────────────────────────────────────────────────
   const consumed = sumMacros(logs);
   const empty = logs.length === 0;
+  // Effective target = base, plus today's lifting-load adjustment when cycling.
+  const targets = activity ? applyCycle(profile.targets, activity) : profile.targets;
 
   async function handleAddWater(ml: number) {
     if (!profile) return;
@@ -125,7 +137,8 @@ export default function NutritionDashboard() {
       />
 
       <div className="space-y-3 p-4">
-        <MacroSummary consumed={consumed} targets={profile.targets} />
+        {activity && <CycleBadge activity={activity} />}
+        <MacroSummary consumed={consumed} targets={targets} />
 
         {empty && (
           <p className="rounded-2xl bg-card/60 px-4 py-3 text-center text-sm text-muted">
@@ -154,5 +167,41 @@ export default function NutritionDashboard() {
 
       <NutritionNav />
     </main>
+  );
+}
+
+/** Compact badge showing today's auto activity tier + calorie adjustment. */
+function CycleBadge({ activity }: { activity: DayActivity }) {
+  const dot =
+    activity.tier === "rest"
+      ? "bg-sky-400"
+      : activity.tier === "high"
+        ? "bg-[#FBBF24]"
+        : "bg-accent";
+  const adj = activity.calorieAdjustment;
+  const adjColor =
+    adj > 0 ? "text-[#FBBF24]" : adj < 0 ? "text-sky-400" : "text-muted";
+  return (
+    <div className="flex items-center justify-between rounded-2xl bg-card px-4 py-3">
+      <div className="flex items-center gap-2.5">
+        <span className={`h-2.5 w-2.5 rounded-full ${dot}`} />
+        <div>
+          <div className="text-sm font-semibold text-white">{activity.label}</div>
+          <div className="text-[11px] text-muted">
+            {activity.sessions === 0
+              ? "No lifting logged today"
+              : `${activity.sessions} session${
+                  activity.sessions > 1 ? "s" : ""
+                } · ${Math.round(activity.volumeKg).toLocaleString()} kg`}
+          </div>
+        </div>
+      </div>
+      <div className="text-right">
+        <div className={`text-sm font-bold tabular-nums ${adjColor}`}>
+          {adj === 0 ? "On target" : `${adj > 0 ? "+" : ""}${adj} kcal`}
+        </div>
+        <div className="text-[10px] text-faint">auto from lifting</div>
+      </div>
+    </div>
   );
 }

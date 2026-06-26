@@ -78,6 +78,7 @@ function rowToProfile(r: any): NutritionProfile {
       carbs_g: Number(r.target_carbs_g),
     },
     waterTargetMl: Number(r.water_target_ml ?? 2500),
+    calorieCyclingEnabled: Boolean(r.calorie_cycling_enabled ?? false),
     createdAt: r.created_at ?? "",
     updatedAt: r.updated_at ?? "",
   };
@@ -100,6 +101,7 @@ function profileToRow(p: NutritionProfile) {
     target_fat_g: p.targets.fat_g,
     target_carbs_g: p.targets.carbs_g,
     water_target_ml: p.waterTargetMl,
+    calorie_cycling_enabled: p.calorieCyclingEnabled,
     created_at: p.createdAt,
     updated_at: p.updatedAt,
   };
@@ -184,6 +186,7 @@ export function buildProfile(
     ...inputs,
     targets,
     waterTargetMl,
+    calorieCyclingEnabled: existing?.calorieCyclingEnabled ?? false,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   };

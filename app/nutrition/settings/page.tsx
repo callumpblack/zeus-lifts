@@ -142,6 +142,9 @@ export default function SettingsPage() {
           </dl>
         </section>
 
+        {/* Training-day calorie cycling */}
+        <CalorieCyclingCard profile={profile} onSaved={reload} />
+
         {/* Water target */}
         <WaterTargetCard profile={profile} onSaved={reload} />
 
@@ -168,6 +171,70 @@ export default function SettingsPage() {
 
       <NutritionNav />
     </main>
+  );
+}
+
+function CalorieCyclingCard({
+  profile,
+  onSaved,
+}: {
+  profile: NutritionProfile;
+  onSaved: () => Promise<unknown>;
+}) {
+  const [enabled, setEnabled] = useState(profile.calorieCyclingEnabled);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setEnabled(profile.calorieCyclingEnabled);
+  }, [profile.calorieCyclingEnabled]);
+
+  async function toggle() {
+    const next = !enabled;
+    setEnabled(next); // optimistic
+    setSaving(true);
+    try {
+      await saveProfile({
+        ...profile,
+        calorieCyclingEnabled: next,
+        updatedAt: new Date().toISOString(),
+      });
+      if (getActiveProfileId() == null) setActiveProfileId(profile.id);
+      await onSaved();
+    } catch {
+      setEnabled(!next); // revert on failure
+    }
+    setSaving(false);
+  }
+
+  return (
+    <section className="rounded-2xl bg-card p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="font-bold text-white">Training-day calorie cycling</h3>
+          <p className="mt-1 text-xs text-muted">
+            Auto-adjusts today’s calories from your lifting load — rest days
+            lower, heavy or double days higher. Protein &amp; fat stay fixed;
+            carbs flex.
+          </p>
+        </div>
+        <button
+          role="switch"
+          aria-checked={enabled}
+          aria-label="Toggle training-day calorie cycling"
+          onClick={toggle}
+          disabled={saving}
+          className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${
+            enabled ? "bg-accent" : "bg-elevated"
+          } disabled:opacity-60`}
+        >
+          <span
+            className={`absolute top-1 h-5 w-5 rounded-full bg-white transition-all ${
+              enabled ? "left-6" : "left-1"
+            }`}
+          />
+        </button>
+      </div>
+    </section>
   );
 }
 
