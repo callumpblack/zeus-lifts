@@ -97,7 +97,7 @@ export default function ExercisePicker({
       onClick={() => onPick(e, pair)}
       className="flex w-full items-center gap-3 py-2.5 text-left transition-colors active:bg-card"
     >
-      <ExerciseImage slug={e.slug} alt={e.name} size={48} />
+      <ExerciseImage name={e.name} slug={e.slug} alt={e.name} size={48} />
       <div className="min-w-0 flex-1">
         <div className="truncate font-medium text-white">{e.name}</div>
         <div className="truncate text-sm text-muted">{e.primaryMuscle}</div>

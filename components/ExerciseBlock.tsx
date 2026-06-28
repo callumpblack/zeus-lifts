@@ -48,7 +48,13 @@ export default function ExerciseBlock({
     <div className="rounded-2xl bg-card p-4">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <ExerciseImage slug={exercise.slug} alt={exercise.exerciseName} size={40} />
+        <ExerciseImage
+          name={exercise.exerciseName}
+          slug={exercise.slug}
+          alt={exercise.exerciseName}
+          size={40}
+          link
+        />
         <h3 className="min-w-0 flex-1 truncate font-semibold text-accent">
           {exercise.exerciseName}
         </h3>

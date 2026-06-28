@@ -104,9 +104,11 @@ export default function HistoryPage() {
                         {completed.map((ex) => (
                           <li key={ex.id} className="flex gap-3">
                             <ExerciseImage
+                              name={ex.exerciseName}
                               slug={ex.slug}
                               alt={ex.exerciseName}
                               size={36}
+                              link
                             />
                             <div className="min-w-0 flex-1">
                               <div className="truncate text-sm font-medium text-white">

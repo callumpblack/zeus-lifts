@@ -17,6 +17,11 @@ import {
 } from "@/lib/db";
 import { randomAnimal } from "@/lib/animals";
 import {
+  primaryMuscleFor,
+  volumeByMuscle,
+  type MuscleVolume,
+} from "@/lib/muscle-groups";
+import {
   completedSetCount,
   formatDuration,
   uid,
@@ -76,6 +81,7 @@ export default function WorkoutLogger({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [recentNames, setRecentNames] = useState<string[]>([]);
   const [summary, setSummary] = useState<WorkoutSummary | null>(null);
+  const [breakdown, setBreakdown] = useState<MuscleVolume[]>([]);
   const [saving, setSaving] = useState(false);
   const [bodyweightKg, setBodyweightKg] = useState<number | null>(null);
 
@@ -387,8 +393,15 @@ export default function WorkoutLogger({
       finishedAt,
       animalName: animal.name,
       animalEmoji: animal.emoji,
+      // Denormalize the primary muscle per exercise for fast volume-by-muscle
+      // charts (here and in history/stats).
+      exercises: workout.exercises.map((ex) => ({
+        ...ex,
+        bodyPart: primaryMuscleFor(ex),
+      })),
     };
     await saveWorkout(finished);
+    setBreakdown(volumeByMuscle(finished));
 
     try {
       window.localStorage.removeItem(draftKey);
@@ -416,7 +429,13 @@ export default function WorkoutLogger({
   }
 
   if (summary) {
-    return <WorkoutSummaryView name={workout.name} summary={summary} />;
+    return (
+      <WorkoutSummaryView
+        name={workout.name}
+        summary={summary}
+        breakdown={breakdown}
+      />
+    );
   }
 
   const hasExercises = workout.exercises.length > 0;

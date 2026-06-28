@@ -60,6 +60,9 @@ export interface WorkoutExercise {
   requiresBodyweight?: boolean;
   // Exercises sharing the same id are rendered together as a superset.
   supersetGroup?: string | null;
+  // Primary muscle group, denormalized at save time for fast volume-by-muscle
+  // charts (avoids re-deriving from the exercise library). See lib/exercises.
+  bodyPart?: string | null;
 }
 
 /** A workout — in progress or completed. */
@@ -84,6 +87,32 @@ export interface ExerciseDef {
   equipment: string;
   // Assisted/bodyweight exercises logged as bodyweight − assistance.
   requiresBodyweight?: boolean;
+}
+
+/**
+ * Enrichment for an exercise sourced from the hasaneyldrm/exercises dataset
+ * (see scripts/build-exercises.mjs → lib/exercise-media.generated.json).
+ */
+export interface ExerciseMedia {
+  datasetId: string;
+  datasetName: string;
+  /** Absolute animated-GIF URL, or null when the dataset has no usable gif. */
+  gifUrl: string | null;
+  /** Dataset's coarse body part (e.g. "chest", "upper legs"). */
+  bodyPart: string;
+  /** Primary target muscle (e.g. "pectorals"). */
+  target: string;
+  secondaryMuscles: string[];
+}
+
+/** Everything the /exercise/[name] detail modal needs to render. */
+export interface ExerciseDetail {
+  name: string;
+  slug: string | null;
+  primaryMuscle: string;
+  equipment: string;
+  gifUrl: string | null;
+  secondaryMuscles: string[];
 }
 
 /** Summary stats shown after finishing a workout. */

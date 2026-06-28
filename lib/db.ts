@@ -10,6 +10,7 @@ import type {
 } from "./types";
 import { SEED_ROUTINES } from "./seed-routines";
 import { uid } from "./format";
+import { EXERCISE_LIBRARY, mediaFor } from "./exercises";
 import { getSupabase, isSupabaseConfigured } from "./supabase";
 
 /**
@@ -175,7 +176,7 @@ export async function getWorkouts(): Promise<Workout[]> {
   const { data: exRows } = await sb
     .from("workout_exercises")
     .select(
-      'id, workout_id, exercise_name, slug, notes, "order", requires_bodyweight, superset_group'
+      'id, workout_id, exercise_name, slug, notes, "order", requires_bodyweight, superset_group, body_part'
     )
     .order("order", { ascending: true });
   const { data: setRows } = await sb
@@ -206,6 +207,7 @@ export async function getWorkouts(): Promise<Workout[]> {
         restEnabled: false,
         requiresBodyweight: e.requires_bodyweight ?? false,
         supersetGroup: e.superset_group ?? null,
+        bodyPart: e.body_part ?? null,
         sets: (setRows ?? [])
           .filter((s) => s.workout_exercise_id === e.id)
           .map((s) => ({
@@ -252,6 +254,7 @@ export async function saveWorkout(workout: Workout): Promise<void> {
       order: ex.order,
       requires_bodyweight: ex.requiresBodyweight ?? false,
       superset_group: ex.supersetGroup ?? null,
+      body_part: ex.bodyPart ?? null,
     });
     const sets = ex.sets.filter((s) => s.weightKg != null || s.reps != null);
     if (sets.length) {
@@ -420,6 +423,54 @@ export async function getLastPerformance(
     break; // newest workout with this exercise wins
   }
   return result;
+}
+
+// ── Exercise cache (optional, for fast server-side lookups) ─────────────────
+/**
+ * Mirror the curated exercise library + dataset enrichment into the optional
+ * `exercises_cache` table. The app itself reads the embedded JSON (instant,
+ * offline-safe); this populates the table so future server-side features can
+ * query exercises by name. Best-effort: a no-op without Supabase.
+ */
+export async function seedExerciseCache(): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) return;
+  const rows = EXERCISE_LIBRARY.flatMap((def) => {
+    const m = mediaFor(def.name);
+    if (!m) return [];
+    return [
+      {
+        id: m.datasetId,
+        name: def.name,
+        equipment: def.equipment,
+        body_part: def.primaryMuscle, // denormalized primary muscle group
+        target: m.target,
+        gif_url: m.gifUrl,
+      },
+    ];
+  });
+  if (rows.length) await sb.from("exercises_cache").upsert(rows);
+}
+
+let cacheChecked = false;
+/**
+ * Populate `exercises_cache` once per session if it's empty. Silently skips
+ * when Supabase isn't configured or the table/migration is absent, so it never
+ * disrupts app load.
+ */
+export async function ensureExerciseCache(): Promise<void> {
+  const sb = getSupabase();
+  if (!sb || cacheChecked) return;
+  cacheChecked = true;
+  try {
+    const { count, error } = await sb
+      .from("exercises_cache")
+      .select("id", { count: "exact", head: true });
+    if (error) return; // table missing / RLS — skip silently
+    if ((count ?? 0) === 0) await seedExerciseCache();
+  } catch {
+    /* ignore */
+  }
 }
 
 export const usingSupabase = isSupabaseConfigured;

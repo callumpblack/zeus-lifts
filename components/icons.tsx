@@ -168,6 +168,15 @@ export function UserIcon(p: IconProps) {
   );
 }
 
+export function CloseIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </svg>
+  );
+}
+
 export function NoteIcon(p: IconProps) {
   return (
     <svg {...base(p)}>

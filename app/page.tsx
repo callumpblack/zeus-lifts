@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Routine } from "@/lib/types";
-import { getRoutines } from "@/lib/db";
+import { ensureExerciseCache, getRoutines } from "@/lib/db";
 import BottomNav from "@/components/BottomNav";
 import RoutineCard from "@/components/RoutineCard";
 import ModuleToggle from "@/components/nutrition/ModuleToggle";
@@ -25,6 +25,8 @@ export default function HomePage() {
 
   useEffect(() => {
     load();
+    // Populate the optional exercises_cache table once (best-effort, no await).
+    void ensureExerciseCache();
   }, [load]);
 
   return (

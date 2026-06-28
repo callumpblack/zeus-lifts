@@ -1,17 +1,28 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import type { WorkoutSummary } from "@/lib/types";
+import type { MuscleVolume } from "@/lib/muscle-groups";
 import { formatDuration } from "@/lib/format";
 import { CheckIcon, TrendingIcon } from "./icons";
+
+// Recharts is heavy and only needed on this finish screen — load it lazily so
+// it never weighs down the active-workout bundle.
+const MuscleBreakdownChart = dynamic(() => import("./MuscleBreakdownChart"), {
+  ssr: false,
+  loading: () => <div className="h-[200px]" />,
+});
 
 interface Props {
   name: string;
   summary: WorkoutSummary;
+  /** Volume share per primary muscle, for the breakdown doughnut. */
+  breakdown: MuscleVolume[];
 }
 
 /** Confirmation screen shown after a workout is saved. */
-export default function WorkoutSummaryView({ name, summary }: Props) {
+export default function WorkoutSummaryView({ name, summary, breakdown }: Props) {
   const router = useRouter();
 
   return (
@@ -41,6 +52,16 @@ export default function WorkoutSummaryView({ name, summary }: Props) {
         <Tile label="Volume" value={`${summary.volumeKg} kg`} />
         <Tile label="Sets" value={String(summary.setsCompleted)} />
       </div>
+
+      {breakdown.length > 0 && (
+        <div className="mt-6 w-full rounded-2xl bg-card p-4 text-left">
+          <h2 className="font-semibold text-white">Muscle breakdown</h2>
+          <p className="mt-0.5 text-xs text-muted">Share of volume by muscle</p>
+          <div className="mt-3">
+            <MuscleBreakdownChart data={breakdown} />
+          </div>
+        </div>
+      )}
 
       {summary.prs.length > 0 && (
         <div className="mt-6 w-full rounded-2xl bg-card p-4 text-left">

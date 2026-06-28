@@ -131,7 +131,13 @@ function RoutineEditorInner() {
             {exercises.map((ex) => (
               <div key={ex.id} className="rounded-2xl bg-card p-4">
                 <div className="flex items-center gap-3">
-                  <ExerciseImage slug={ex.slug} alt={ex.exerciseName} size={40} />
+                  <ExerciseImage
+                    name={ex.exerciseName}
+                    slug={ex.slug}
+                    alt={ex.exerciseName}
+                    size={40}
+                    link
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-semibold text-accent">
                       {ex.exerciseName}
