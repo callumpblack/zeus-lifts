@@ -28,9 +28,11 @@ import {
   workoutDurationSeconds,
   workoutVolume,
 } from "@/lib/format";
+import { primeAudio } from "@/lib/sound";
 import ExerciseBlock from "./ExerciseBlock";
 import SupersetBlock from "./SupersetBlock";
 import ExercisePicker from "./ExercisePicker";
+import ToughnessRating from "./ToughnessRating";
 import WorkoutSummaryView from "./WorkoutSummary";
 import {
   ChevronDownIcon,
@@ -82,6 +84,7 @@ export default function WorkoutLogger({
   const [recentNames, setRecentNames] = useState<string[]>([]);
   const [summary, setSummary] = useState<WorkoutSummary | null>(null);
   const [breakdown, setBreakdown] = useState<MuscleVolume[]>([]);
+  const [rating, setRating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [bodyweightKg, setBodyweightKg] = useState<number | null>(null);
 
@@ -246,6 +249,8 @@ export default function WorkoutLogger({
   }
 
   function toggleSet(exId: string, setId: string) {
+    // Unlock the AudioContext from this user gesture so the timer can chime later.
+    primeAudio();
     setWorkout((w) => {
       let justCompleted = false;
       let exercises = w.exercises.map((ex) => {
@@ -264,11 +269,11 @@ export default function WorkoutLogger({
         };
       });
 
-      // Standard superset behaviour: once a round is complete across the pair
-      // (every grouped exercise has the same number of completed top-level sets),
-      // auto-start the shared rest timer on the group's head exercise.
       const ex = exercises.find((e) => e.id === exId);
       if (justCompleted && ex?.supersetGroup) {
+        // Superset: once a round is complete across the pair (every grouped
+        // exercise has the same number of completed top-level sets), (re)start
+        // the shared rest timer on the group's head exercise.
         const group = exercises.filter((e) => e.supersetGroup === ex.supersetGroup);
         const counts = group.map(
           (e) => e.sets.filter((s) => !s.parentSetId && s.completed).length
@@ -277,13 +282,41 @@ export default function WorkoutLogger({
         if (roundDone) {
           const headId = group[0].id;
           exercises = exercises.map((e) =>
-            e.id === headId ? { ...e, restEnabled: true } : e
+            e.id === headId
+              ? { ...e, restEnabled: true, restStartedAt: Date.now() }
+              : e
           );
         }
+      } else if (justCompleted && ex) {
+        // Standalone exercise: pressing the green tick (re)starts its rest timer.
+        exercises = exercises.map((e) =>
+          e.id === exId
+            ? { ...e, restEnabled: true, restStartedAt: Date.now() }
+            : e
+        );
       }
 
       return { ...w, exercises };
     });
+  }
+
+  /** Remove a single set. Deleting a top-level set also drops its drop sets and
+   *  renumbers the remaining top-level sets. */
+  function deleteSet(exId: string, setId: string) {
+    setWorkout((w) => ({
+      ...w,
+      exercises: w.exercises.map((ex) => {
+        if (ex.id !== exId) return ex;
+        const sets = ex.sets.filter(
+          (s) => s.id !== setId && s.parentSetId !== setId
+        );
+        let n = 0;
+        const renumbered = sets.map((s) =>
+          s.parentSetId ? s : { ...s, setNumber: ++n }
+        );
+        return { ...ex, sets: renumbered };
+      }),
+    }));
   }
 
   function changeSet(exId: string, setId: string, patch: Partial<WorkoutSet>) {
@@ -349,6 +382,26 @@ export default function WorkoutLogger({
   }
 
   // ── Finish / discard ──────────────────────────────────────────────────────
+  /** Tapping "Finish": rate each worked exercise first, then save. With no
+   *  completed sets there's nothing to rate, so save straight away. */
+  function beginFinish() {
+    if (saving) return;
+    const hasCompleted = workout.exercises.some((ex) =>
+      ex.sets.some((s) => s.completed)
+    );
+    if (hasCompleted) setRating(true);
+    else finish();
+  }
+
+  function setToughness(exId: string, value: number | null) {
+    setWorkout((w) => ({
+      ...w,
+      exercises: w.exercises.map((ex) =>
+        ex.id === exId ? { ...ex, toughness: value } : ex
+      ),
+    }));
+  }
+
   async function finish() {
     if (saving) return;
     setSaving(true);
@@ -438,6 +491,18 @@ export default function WorkoutLogger({
     );
   }
 
+  if (rating) {
+    return (
+      <ToughnessRating
+        exercises={workout.exercises}
+        saving={saving}
+        onRate={setToughness}
+        onBack={() => setRating(false)}
+        onDone={finish}
+      />
+    );
+  }
+
   const hasExercises = workout.exercises.length > 0;
 
   return (
@@ -456,7 +521,7 @@ export default function WorkoutLogger({
           <div className="flex items-center gap-3">
             <ClockIcon size={20} className="text-white" aria-hidden />
             <button
-              onClick={finish}
+              onClick={beginFinish}
               disabled={saving}
               className="rounded-lg bg-accent px-4 py-1.5 font-semibold text-ink transition-colors hover:bg-accent-dim disabled:opacity-60"
             >
@@ -506,6 +571,7 @@ export default function WorkoutLogger({
                 onToggleSet={toggleSet}
                 onChangeSet={changeSet}
                 onAddDropSet={addDropSet}
+                onDeleteSet={deleteSet}
                 onRemove={removeExercise}
               />
             ) : (
@@ -518,6 +584,7 @@ export default function WorkoutLogger({
                 onToggleSet={(setId) => toggleSet(group[0].id, setId)}
                 onChangeSet={(setId, patch) => changeSet(group[0].id, setId, patch)}
                 onAddDropSet={(parentSetId) => addDropSet(group[0].id, parentSetId)}
+                onDeleteSet={(setId) => deleteSet(group[0].id, setId)}
                 onRemove={() => removeExercise(group[0].id)}
               />
             )

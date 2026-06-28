@@ -111,8 +111,15 @@ export default function HistoryPage() {
                               link
                             />
                             <div className="min-w-0 flex-1">
-                              <div className="truncate text-sm font-medium text-white">
-                                {ex.exerciseName}
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="truncate text-sm font-medium text-white">
+                                  {ex.exerciseName}
+                                </div>
+                                {ex.toughness != null && (
+                                  <span className="shrink-0 rounded-full bg-elevated px-2 py-0.5 text-[11px] font-semibold text-muted">
+                                    {ex.toughness}/10
+                                  </span>
+                                )}
                               </div>
                               <div className="mt-0.5 text-xs text-muted">
                                 {ex.done

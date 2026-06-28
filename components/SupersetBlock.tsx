@@ -14,6 +14,7 @@ interface Props {
   onToggleSet: (exId: string, setId: string) => void;
   onChangeSet: (exId: string, setId: string, patch: Partial<WorkoutSet>) => void;
   onAddDropSet: (exId: string, parentSetId: string) => void;
+  onDeleteSet: (exId: string, setId: string) => void;
   onRemove: (exId: string) => void;
 }
 
@@ -30,6 +31,7 @@ export default function SupersetBlock({
   onToggleSet,
   onChangeSet,
   onAddDropSet,
+  onDeleteSet,
   onRemove,
 }: Props) {
   const head = exercises[0];
@@ -44,7 +46,13 @@ export default function SupersetBlock({
         <RestTimer
           seconds={head.restSeconds || 60}
           enabled={head.restEnabled}
-          onToggle={() => onChange(head.id, { restEnabled: !head.restEnabled })}
+          startedAt={head.restStartedAt}
+          onToggle={() =>
+            onChange(head.id, {
+              restEnabled: !head.restEnabled,
+              restStartedAt: !head.restEnabled ? Date.now() : head.restStartedAt,
+            })
+          }
         />
       </div>
 
@@ -61,6 +69,7 @@ export default function SupersetBlock({
               onToggleSet={(setId) => onToggleSet(ex.id, setId)}
               onChangeSet={(setId, patch) => onChangeSet(ex.id, setId, patch)}
               onAddDropSet={(parentSetId) => onAddDropSet(ex.id, parentSetId)}
+              onDeleteSet={(setId) => onDeleteSet(ex.id, setId)}
               onRemove={() => onRemove(ex.id)}
             />
           </Fragment>

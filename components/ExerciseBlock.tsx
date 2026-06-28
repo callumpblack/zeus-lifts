@@ -15,6 +15,7 @@ interface Props {
   onToggleSet: (setId: string) => void;
   onChangeSet: (setId: string, patch: Partial<WorkoutSet>) => void;
   onAddDropSet: (parentSetId: string) => void;
+  onDeleteSet: (setId: string) => void;
   onRemove: () => void;
   /** Lifter bodyweight (from Profile), used by assisted exercises. */
   bodyweightKg?: number | null;
@@ -30,6 +31,7 @@ export default function ExerciseBlock({
   onToggleSet,
   onChangeSet,
   onAddDropSet,
+  onDeleteSet,
   onRemove,
   bodyweightKg = null,
   hideRestTimer = false,
@@ -113,7 +115,13 @@ export default function ExerciseBlock({
           <RestTimer
             seconds={exercise.restSeconds || 60}
             enabled={exercise.restEnabled}
-            onToggle={() => onChange({ restEnabled: !exercise.restEnabled })}
+            startedAt={exercise.restStartedAt}
+            onToggle={() =>
+              onChange({
+                restEnabled: !exercise.restEnabled,
+                restStartedAt: !exercise.restEnabled ? Date.now() : exercise.restStartedAt,
+              })
+            }
           />
         </div>
       )}
@@ -148,6 +156,7 @@ export default function ExerciseBlock({
               onToggle={() => onToggleSet(s.id)}
               onChange={(patch) => onChangeSet(s.id, patch)}
               onAddDropSet={() => onAddDropSet(s.id)}
+              onDelete={() => onDeleteSet(s.id)}
             />
             {childrenOf(s.id).map((c) => (
               <SetRow
@@ -158,6 +167,7 @@ export default function ExerciseBlock({
                 bodyweightKg={bodyweightKg}
                 onToggle={() => onToggleSet(c.id)}
                 onChange={(patch) => onChangeSet(c.id, patch)}
+                onDelete={() => onDeleteSet(c.id)}
               />
             ))}
           </Fragment>

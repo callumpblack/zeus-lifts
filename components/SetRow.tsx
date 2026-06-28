@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { WorkoutSet } from "@/lib/types";
 import { CheckIcon } from "./icons";
 
@@ -14,6 +15,8 @@ interface Props {
   isDropSet?: boolean;
   /** Tap the set number to add a drop set under this (top-level) row. */
   onAddDropSet?: () => void;
+  /** Delete this set (and any drop sets) from the exercise. */
+  onDelete?: () => void;
 }
 
 // Shared column template so header + rows line up exactly.
@@ -34,7 +37,9 @@ export default function SetRow({
   bodyweightKg = null,
   isDropSet = false,
   onAddDropSet,
+  onDelete,
 }: Props) {
+  const [menuOpen, setMenuOpen] = useState(false);
   const done = set.completed;
   const prev = set.previous;
 
@@ -71,22 +76,47 @@ export default function SetRow({
         done ? "bg-success/25" : isDropSet ? "bg-elevated/40" : ""
       }`}
     >
-      {/* Set number — drop sets show a branch glyph; top-level rows are tappable. */}
-      {isDropSet ? (
-        <div className="text-center text-sm font-semibold text-faint" aria-hidden>
-          ↳
-        </div>
-      ) : (
+      {/* Set number — tap to open a menu (add drop set / delete). Drop sets
+          show a branch glyph and only offer delete. */}
+      <div className="relative mx-auto">
         <button
-          onClick={onAddDropSet}
-          aria-label={`Set ${set.setNumber} — tap to add a drop set`}
-          className={`mx-auto flex h-6 w-6 items-center justify-center rounded-md text-sm font-semibold transition-colors hover:bg-elevated ${
-            done ? "text-white" : "text-muted"
+          onClick={() => setMenuOpen((v) => !v)}
+          aria-label={`Set ${set.setNumber} options`}
+          aria-haspopup="menu"
+          className={`flex h-6 w-6 items-center justify-center rounded-md text-sm font-semibold transition-colors hover:bg-elevated ${
+            isDropSet ? "text-faint" : done ? "text-white" : "text-muted"
           }`}
         >
-          {set.setNumber}
+          {isDropSet ? "↳" : set.setNumber}
         </button>
-      )}
+        {menuOpen && (
+          <>
+            <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+            <div className="absolute left-0 top-7 z-20 w-40 overflow-hidden rounded-xl border border-hairline bg-elevated shadow-xl">
+              {!isDropSet && onAddDropSet && (
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onAddDropSet();
+                  }}
+                  className="block w-full px-4 py-3 text-left text-sm text-white hover:bg-hairline"
+                >
+                  Add drop set
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  onDelete?.();
+                }}
+                className="block w-full px-4 py-3 text-left text-sm text-danger hover:bg-hairline"
+              >
+                {isDropSet ? "Delete drop set" : "Delete set"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
 
       {/* Previous (normal) or computed lifted weight (assisted). */}
       <div className="truncate text-center text-sm text-faint">

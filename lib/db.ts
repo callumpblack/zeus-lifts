@@ -176,7 +176,7 @@ export async function getWorkouts(): Promise<Workout[]> {
   const { data: exRows } = await sb
     .from("workout_exercises")
     .select(
-      'id, workout_id, exercise_name, slug, notes, "order", requires_bodyweight, superset_group, body_part'
+      'id, workout_id, exercise_name, slug, notes, "order", requires_bodyweight, superset_group, toughness, body_part'
     )
     .order("order", { ascending: true });
   const { data: setRows } = await sb
@@ -207,6 +207,7 @@ export async function getWorkouts(): Promise<Workout[]> {
         restEnabled: false,
         requiresBodyweight: e.requires_bodyweight ?? false,
         supersetGroup: e.superset_group ?? null,
+        toughness: e.toughness ?? null,
         bodyPart: e.body_part ?? null,
         sets: (setRows ?? [])
           .filter((s) => s.workout_exercise_id === e.id)
@@ -254,6 +255,7 @@ export async function saveWorkout(workout: Workout): Promise<void> {
       order: ex.order,
       requires_bodyweight: ex.requiresBodyweight ?? false,
       superset_group: ex.supersetGroup ?? null,
+      toughness: ex.toughness ?? null,
       body_part: ex.bodyPart ?? null,
     });
     const sets = ex.sets.filter((s) => s.weightKg != null || s.reps != null);

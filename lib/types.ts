@@ -56,10 +56,15 @@ export interface WorkoutExercise {
   sets: WorkoutSet[];
   restSeconds: number; // current rest-timer duration for this block
   restEnabled: boolean;
+  // Epoch ms the current rest countdown started. Bumped each time a set is
+  // completed so the timer restarts from full. UI-only (not persisted to DB).
+  restStartedAt?: number | null;
   // True for assisted exercises (input = assistance, lifted = bodyweight − assistance).
   requiresBodyweight?: boolean;
   // Exercises sharing the same id are rendered together as a superset.
   supersetGroup?: string | null;
+  // Self-rated toughness for this exercise (1–10), set on the finish screen.
+  toughness?: number | null;
   // Primary muscle group, denormalized at save time for fast volume-by-muscle
   // charts (avoids re-deriving from the exercise library). See lib/exercises.
   bodyPart?: string | null;

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { HomeIcon, HistoryIcon, UserIcon } from "./icons";
+import { HomeIcon, HistoryIcon, BarChartIcon, UserIcon } from "./icons";
 
 const TABS = [
   { href: "/", label: "Home", icon: HomeIcon, match: (p: string) => p === "/" },
@@ -11,6 +11,12 @@ const TABS = [
     label: "History",
     icon: HistoryIcon,
     match: (p: string) => p.startsWith("/history"),
+  },
+  {
+    href: "/stats",
+    label: "Stats",
+    icon: BarChartIcon,
+    match: (p: string) => p.startsWith("/stats"),
   },
   {
     href: "/profile",

@@ -168,6 +168,17 @@ export function UserIcon(p: IconProps) {
   );
 }
 
+export function BarChartIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M3 3v18h18" />
+      <rect x="7" y="11" width="3" height="6" rx="0.5" />
+      <rect x="12" y="7" width="3" height="10" rx="0.5" />
+      <rect x="17" y="13" width="3" height="4" rx="0.5" />
+    </svg>
+  );
+}
+
 export function CloseIcon(p: IconProps) {
   return (
     <svg {...base(p)}>
